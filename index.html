@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SKU &amp; Brand Overlap Explorer</title>
+<style>
+:root {
+  --bg: #f5f7fa;
+  --card: #fff;
+  --text: #16202e;
+  --muted: #5c6b7a;
+  --border: #dfe5ec;
+  --accent: #1e5a8a;
+  --accent-dark: #163f61;
+  --accent-light: #e8f2fa;
+  --pv: #2d7a4f;
+  --ps: #2563eb;
+  --ch: #d97706;
+  --am: #7c3aed;
+  --seg-excl: #d4dbe4;
+  --seg-1: #8db8dd;
+  --seg-2: #3f7fb5;
+  --seg-3: #163f61;
+  --radius: 10px;
+  --shadow: 0 2px 10px rgba(16,32,46,.06);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.55; }
+a { color: var(--accent); }
+code { background: #eef2f6; padding: .1rem .35rem; border-radius: 4px; font-size: .85em; }
+
+header {
+  background: linear-gradient(135deg, #14324e 0%, #1e5a8a 100%);
+  color: #fff; padding: 1.2rem 1.6rem 0;
+}
+header h1 { margin: 0 0 .2rem; font-size: 1.4rem; font-weight: 600; }
+header p { margin: 0; opacity: .85; font-size: .9rem; }
+nav.tabs { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: 1rem; }
+nav.tabs button {
+  background: transparent; border: none; color: rgba(255,255,255,.72);
+  padding: .65rem 1.05rem; cursor: pointer; font-size: .92rem;
+  border-bottom: 3px solid transparent;
+}
+nav.tabs button:hover { color: #fff; }
+nav.tabs button.active { color: #fff; border-bottom-color: #7ec8e3; font-weight: 600; }
+
+main { max-width: 1440px; margin: 0 auto; padding: 1.25rem 1.6rem 3rem; }
+.page { display: none; }
+.page.active { display: block; }
+
+.card {
+  background: var(--card); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 1.3rem 1.5rem; margin-bottom: 1rem;
+  border: 1px solid var(--border);
+}
+.card h2 { margin: 0 0 .35rem; font-size: 1.12rem; }
+.card .sub { margin: 0 0 .9rem; color: var(--muted); font-size: .88rem; }
+.muted { color: var(--muted); font-size: .88rem; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ---- level checkboxes ---- */
+.level-checks { display: flex; flex-wrap: wrap; gap: .5rem; }
+.level-check {
+  display: flex; align-items: flex-start; gap: .55rem; cursor: pointer;
+  border: 2px solid var(--border); border-radius: 8px; padding: .55rem .8rem;
+  background: #fff; user-select: none; min-width: 195px; flex: 1;
+  transition: border-color .12s, background .12s;
+}
+.level-check input { margin-top: .2rem; accent-color: var(--accent); width: 16px; height: 16px; }
+.level-check.on { border-color: var(--accent); background: var(--accent-light); }
+.level-check .lc-name { font-weight: 600; font-size: .85rem; }
+.level-check .lc-desc { font-size: .74rem; color: var(--muted); line-height: 1.3; }
+
+/* ---- KPIs ---- */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.kpi {
+  background: var(--card); border-radius: var(--radius); padding: 1rem 1.15rem;
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+.kpi .val { font-size: 1.55rem; font-weight: 700; color: var(--accent-dark); }
+.kpi .val small { font-size: .95rem; font-weight: 600; color: var(--muted); }
+.kpi .lbl { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+
+/* ---- deck-style table ---- */
+table.deck { width: 100%; border-collapse: collapse; font-size: .85rem; }
+table.deck th, table.deck td { padding: .42rem .6rem; border-bottom: 1px solid var(--border); }
+table.deck thead th { background: var(--accent-dark); color: #fff; font-weight: 600; text-align: right; }
+table.deck thead th:first-child { text-align: left; }
+table.deck td { text-align: right; font-variant-numeric: tabular-nums; }
+table.deck td:first-child { text-align: left; }
+table.deck tr.total td { background: #edf2f7; font-weight: 700; }
+table.deck tr.section td { font-weight: 600; }
+table.deck tr.indent td:first-child { padding-left: 1.4rem; color: var(--muted); }
+table.deck .divider { border-left: 2px solid var(--accent-dark); }
+
+/* ---- stacked bars ---- */
+.stack-rows { display: flex; flex-direction: column; gap: .65rem; margin-top: .5rem; }
+.stack-row { display: flex; align-items: center; gap: .7rem; }
+.stack-label { width: 110px; font-size: .85rem; font-weight: 600; flex-shrink: 0; text-align: right; }
+.stack-track { flex: 1; height: 30px; display: flex; border-radius: 5px; overflow: hidden; background: #eef2f6; }
+.seg { height: 100%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: .72rem; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.seg.excl { background: var(--seg-excl); color: #4a5666; }
+.seg.s1 { background: var(--seg-1); color: #16324c; }
+.seg.s2 { background: var(--seg-2); }
+.seg.s3 { background: var(--seg-3); }
+.stack-total { width: 80px; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stack-legend { display: flex; flex-wrap: wrap; gap: 1.1rem; margin-top: .9rem; font-size: .8rem; }
+.stack-legend span { display: flex; align-items: center; gap: .4rem; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+/* ---- heatmap ---- */
+table.heat { border-collapse: collapse; font-size: .84rem; margin-top: .4rem; }
+table.heat th, table.heat td { padding: .55rem .8rem; text-align: center; border: 1px solid var(--border); }
+table.heat th { background: #f0f4f8; font-weight: 600; }
+table.heat td.diag { background: #f6f8fa; color: #b7c0ca; }
+table.heat td .h-pct { font-weight: 700; }
+table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
+
+/* ---- retailer tags ---- */
+.prov-tag { display: inline-block; padding: .14rem .45rem; border-radius: 4px; font-size: .72rem; font-weight: 600; color: #fff; margin-right: .2rem; }
+.prov-petvalu { background: var(--pv); }
+.prov-petsmart { background: var(--ps); }
+.prov-chewy { background: var(--ch); }
+.prov-amazon { background: var(--am); }
+
+/* ---- guide ---- */
+.tier-strip {
+  display: flex; align-items: center; gap: .4rem; margin: .8rem 0 1.1rem;
+  font-size: .78rem; color: var(--muted);
+}
+.tier-strip .strip { flex: 1; height: 8px; border-radius: 4px;
+  background: linear-gradient(90deg, #163f61, #8db8dd); }
+table.matrix { width: 100%; border-collapse: collapse; font-size: .82rem; }
+table.matrix th, table.matrix td { padding: .5rem .55rem; border-bottom: 1px solid var(--border); text-align: center; }
+table.matrix th { background: #f0f4f8; font-weight: 600; }
+table.matrix td:first-child, table.matrix th:first-child { text-align: left; white-space: nowrap; }
+table.matrix td.dot { color: var(--accent); font-size: 1rem; }
+table.matrix td.no { color: #d3dae2; }
+
+.guide-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); margin-bottom: 1.1rem; overflow: hidden;
+}
+.guide-head {
+  display: flex; align-items: center; gap: .8rem; flex-wrap: wrap;
+  padding: .95rem 1.4rem; background: #f7fafc; border-bottom: 1px solid var(--border);
+}
+.guide-badge {
+  background: var(--accent-dark); color: #fff; font-weight: 700; font-size: .95rem;
+  border-radius: 7px; padding: .3rem .7rem;
+}
+.guide-head h3 { margin: 0; font-size: 1.05rem; }
+.guide-tier { margin-left: auto; font-size: .76rem; color: var(--muted); background: #eef2f6; padding: .25rem .6rem; border-radius: 999px; }
+.guide-body { display: grid; grid-template-columns: 1.15fr .85fr; gap: 1.3rem; padding: 1.15rem 1.4rem; }
+@media (max-width: 950px) { .guide-body { grid-template-columns: 1fr; } }
+.guide-q { font-size: .85rem; background: var(--accent-light); border-left: 3px solid var(--accent);
+  padding: .55rem .8rem; border-radius: 0 6px 6px 0; margin-bottom: .8rem; }
+.guide-def { font-size: .9rem; margin: 0 0 .8rem; }
+.guide-use { font-size: .85rem; background: #f0fdf4; border-left: 3px solid #2d7a4f;
+  padding: .55rem .8rem; border-radius: 0 6px 6px 0; }
+.guide-stats { display: flex; gap: 1.4rem; margin-top: .9rem; flex-wrap: wrap; }
+.guide-stat .gs-val { font-weight: 700; font-size: 1.05rem; color: var(--accent-dark); }
+.guide-stat .gs-lbl { font-size: .72rem; color: var(--muted); }
+.guide-example h4 { margin: 0 0 .5rem; font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.guide-example .ex-text { font-size: .85rem; margin-bottom: .7rem; }
+.ex-imgs { display: flex; gap: .8rem; flex-wrap: wrap; }
+.imgslot { margin: 0; width: 150px; }
+.imgslot img { width: 150px; height: 150px; object-fit: contain; background: #fff;
+  border: 1px solid var(--border); border-radius: 8px; display: block; }
+.imgslot .img-ph { display: none; }
+.imgslot.missing img { display: none; }
+.imgslot.missing .img-ph {
+  display: flex; flex-direction: column; justify-content: center; gap: .25rem;
+  width: 150px; height: 150px; border: 2px dashed #c3cdd8; border-radius: 8px;
+  padding: .6rem; font-size: .66rem; color: var(--muted); text-align: center;
+}
+.imgslot .img-ph .ph-file { font-family: monospace; font-size: .62rem; color: var(--accent); word-break: break-all; }
+.imgslot figcaption { font-size: .7rem; color: var(--muted); margin-top: .3rem; text-align: center; line-height: 1.3; }
+.imgslot .img-credit { font-size: .65rem; color: #94a3b8; margin-top: .15rem; }
+.vs-sep { display: flex; align-items: center; font-weight: 700; color: var(--muted); font-size: .8rem; }
+
+/* ---- toolbar / tables (brands + explorer) ---- */
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-end;
+  margin-bottom: 1rem; padding: 1rem; background: var(--card);
+  border-radius: var(--radius); border: 1px solid var(--border);
+}
+.field { display: flex; flex-direction: column; gap: .25rem; }
+.field label { font-size: .74rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.field select, .field input { padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 6px; font-size: .9rem; min-width: 140px; }
+.field input[type=search] { min-width: 220px; }
+.btn { padding: .5rem 1rem; border: none; border-radius: 6px; background: var(--accent); color: #fff; cursor: pointer; font-size: .88rem; }
+.btn:hover { filter: brightness(1.08); }
+.btn.secondary { background: #e2e8f0; color: var(--text); }
+.level-pills { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
+.level-pill { padding: .4rem .85rem; border-radius: 999px; border: 2px solid var(--border); background: #fff; cursor: pointer; font-size: .85rem; font-weight: 500; }
+.level-pill.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+
+table.data { width: 100%; border-collapse: collapse; font-size: .86rem; }
+table.data th, table.data td { padding: .55rem .65rem; text-align: left; border-bottom: 1px solid var(--border); }
+table.data th { background: #f0f4f8; font-weight: 600; position: sticky; top: 0; z-index: 1; cursor: pointer; user-select: none; }
+table.data tr:hover td { background: #f8fafc; }
+table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+
+.cluster-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: .6rem; overflow: hidden; }
+.cluster-head { padding: .65rem .85rem; background: #f8fafc; cursor: pointer; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.cluster-head:hover { background: #eef2f6; }
+.cluster-body { display: none; padding: .5rem .85rem .85rem; border-top: 1px solid var(--border); }
+.cluster-card.open .cluster-body { display: block; }
+.cluster-meta { font-size: .8rem; color: var(--muted); flex: 1; min-width: 200px; }
+
+.error-box { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 1rem; border-radius: 8px; margin: 1rem 0; }
+.hint-box { background: #fffbeb; border: 1px solid #fde68a; padding: .85rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="hdr-title">SKU &amp; Brand Overlap Explorer</h1>
+  <p id="hdr-sub">Loading …</p>
+  <nav class="tabs" id="nav">
+    <button data-page="metrics" class="active">Key Metrics</button>
+    <button data-page="guide">Levels Guide</button>
+    <button data-page="brands">Brands</button>
+    <button data-page="explorer">Cluster Explorer</button>
+  </nav>
+</header>
+
+<main>
+  <div id="load-err" class="error-box" style="display:none"></div>
+  <div id="server-hint" class="hint-box" style="display:none">
+    This dashboard loads data files from the <code>dashboard/</code> folder.
+    Run <code>python build_match_dashboard.py</code>, then start a local server:
+    <code>python -m http.server 8080 --directory __perSku/match_levels/dashboard</code>
+    and open <code>http://localhost:8080/</code>.
+  </div>
+
+  <!-- ==================== KEY METRICS ==================== -->
+  <section id="page-metrics" class="page active">
+    <div class="card">
+      <h2>Match levels included in this view</h2>
+      <p class="sub">
+        Tick any combination of levels. A SKU counts as “shared” when it matches a
+        competitor SKU at <em>any</em> of the selected levels. Stricter levels mean
+        higher confidence the products are truly the same; broader levels capture
+        equivalent assortment and substitutes.
+      </p>
+      <div class="level-checks" id="lvl-checks"></div>
+    </div>
+
+    <div class="card">
+      <h2>Executive summary</h2>
+      <div id="exec-text"></div>
+    </div>
+
+    <div class="kpi-grid" id="m-kpis"></div>
+
+    <div class="card">
+      <h2>SKU overlap by retailer</h2>
+      <p class="sub">
+        For each retailer: how many of its SKUs are exclusive vs. shared with 1, 2,
+        or all 3 other retailers, at the selected match level(s). Percentages are of
+        each retailer’s own catalog.
+      </p>
+      <div style="overflow:auto"><table class="deck" id="sku-deck"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>Assortment decomposition</h2>
+      <p class="sub">
+        Each bar decomposes a retailer’s full catalog into exclusive SKUs and SKUs
+        shared with 1, 2, or all 3 other retailers, at the selected level(s).
+      </p>
+      <div class="stack-rows" id="stack-bars"></div>
+      <div class="stack-legend">
+        <span><span class="swatch" style="background:var(--seg-excl)"></span>Exclusive to this retailer</span>
+        <span><span class="swatch" style="background:var(--seg-1)"></span>Shared with 1 other retailer</span>
+        <span><span class="swatch" style="background:var(--seg-2)"></span>Shared with 2 others</span>
+        <span><span class="swatch" style="background:var(--seg-3)"></span>Carried by all 4 retailers</span>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h2>Pairwise overlap matrix</h2>
+        <p class="sub">
+          Each cell reads: “this share of the <strong>row</strong> retailer’s SKUs is
+          also carried by the <strong>column</strong> retailer” at the selected level(s).
+          The matrix is not symmetric because catalogs differ in size.
+        </p>
+        <div style="overflow:auto"><table class="heat" id="heat-table"></table></div>
+      </div>
+      <div class="card">
+        <h2>Brand overlap by retailer</h2>
+        <p class="sub">
+          Brand-name presence across retailer catalogs (independent of match level).
+          A brand is shared when the same normalized brand name appears in another
+          retailer’s catalog. Amazon uses enriched brand names (~28k ASINs).
+        </p>
+        <div style="overflow:auto"><table class="deck" id="brand-deck"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== LEVELS GUIDE ==================== -->
+  <section id="page-guide" class="page">
+    <div class="card">
+      <h2>How product matching works</h2>
+      <p class="sub" style="margin-bottom:.4rem">
+        Every product listing from Pet Valu, PetSmart, Chewy, and Amazon.ca is compared
+        using six match levels, ordered from strictest to broadest.
+      </p>
+      <p style="font-size:.92rem; margin:.3rem 0 .2rem">
+        <strong>L0</strong> requires an identical barcode and answers “is this exact item sold elsewhere?”
+        <strong>L1–L3</strong> progressively relax flavor and pack size while keeping the same brand and
+        product line, so they answer “is an equivalent item sold elsewhere?”
+        <strong>L4</strong> compares at the brand-and-format level, and <strong>L5</strong> groups
+        functional substitutes across brands, answering “who competes for this shopper?”
+      </p>
+      <div class="tier-strip">
+        <span>Strictest — identical product</span>
+        <div class="strip"></div>
+        <span>Broadest — substitute products</span>
+      </div>
+      <h2 style="font-size:1rem">What each level requires to match</h2>
+      <div style="overflow:auto; margin-top:.5rem">
+        <table class="matrix" id="matrix-table"></table>
+      </div>
+    </div>
+    <div id="guide-cards"></div>
+  </section>
+
+  <!-- ==================== BRANDS ==================== -->
+  <section id="page-brands" class="page">
+    <div class="level-pills" id="brand-levels"></div>
+    <div class="toolbar">
+      <div class="field">
+        <label>Search brand</label>
+        <input type="search" id="brand-search" placeholder="e.g. royal canin">
+      </div>
+      <div class="field">
+        <label>Min retailers</label>
+        <select id="brand-min-prov">
+          <option value="2">2+</option>
+          <option value="3">3+</option>
+          <option value="4">All 4</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Sort by</label>
+        <select id="brand-sort">
+          <option value="clusters">Clusters</option>
+          <option value="sku_rows">SKU rows</option>
+          <option value="brand">Brand A–Z</option>
+        </select>
+      </div>
+      <button class="btn secondary" id="brand-export">Export CSV</button>
+    </div>
+    <div class="card">
+      <h2>Brands in cross-retailer clusters — <span class="brand-lvl-label">L0</span></h2>
+      <p class="sub">
+        A brand appears here when at least one of its SKUs sits in a match cluster
+        spanning two or more retailers at the selected level.
+      </p>
+      <p class="muted" id="brand-count-lbl"></p>
+      <div class="table-wrap">
+        <table class="data" id="brand-table">
+          <thead><tr>
+            <th data-sort="brand">Brand</th>
+            <th data-sort="n_providers" class="num">Retailers</th>
+            <th>Which retailers</th>
+            <th data-sort="clusters" class="num">Clusters</th>
+            <th data-sort="sku_rows" class="num">SKU rows</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== EXPLORER ==================== -->
+  <section id="page-explorer" class="page">
+    <div class="level-pills" id="ex-levels"></div>
+    <div class="toolbar">
+      <div class="field">
+        <label>Search title / brand / SKU</label>
+        <input type="search" id="ex-search" placeholder="e.g. wilderness chicken">
+      </div>
+      <div class="field">
+        <label>Region</label>
+        <select id="ex-region"><option value="">All</option></select>
+      </div>
+      <div class="field">
+        <label>Must include retailer</label>
+        <select id="ex-prov">
+          <option value="">Any</option>
+          <option value="petvalu">Pet Valu</option>
+          <option value="petsmart">PetSmart</option>
+          <option value="chewy">Chewy</option>
+          <option value="amazon">Amazon.ca</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Min members</label>
+        <input type="number" id="ex-min-n" value="2" min="2">
+      </div>
+      <button class="btn" id="ex-apply">Apply filters</button>
+      <button class="btn secondary" id="ex-reset">Reset</button>
+    </div>
+    <div class="card">
+      <h2>Match clusters — <span class="ex-lvl-label">L0</span></h2>
+      <p class="muted" id="ex-summary"></p>
+      <div id="ex-list"></div>
+      <p class="muted" id="ex-pager"></p>
+    </div>
+  </section>
+</main>
+
+<script>
+const LEVELS = ["L0","L1","L2","L3","L4","L5"];
+const PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
+const PROV_CLS = { petvalu:"prov-petvalu", petsmart:"prov-petsmart", chewy:"prov-chewy", amazon:"prov-amazon" };
+
+const LEVEL_SHORT = {
+  L0: "Exact barcode (UPC/GTIN)",
+  L1: "Same product + flavor + size",
+  L2: "Same line + size, any flavor",
+  L3: "Same line, size-normalized",
+  L4: "Same brand + category + format",
+  L5: "Cross-brand substitutes",
+};
+
+// Attribute matrix for the guide page (what each level requires)
+const MATRIX_COLS = ["Barcode","Brand","Product line","Animal","Category","Format","Flavor","Exact size","Size bucket","Need state"];
+const MATRIX = {
+  L0: ["Barcode"],
+  L1: ["Brand","Product line","Animal","Category","Flavor","Exact size"],
+  L2: ["Brand","Product line","Animal","Category","Format","Exact size"],
+  L3: ["Brand","Product line","Animal","Category","Format","Size bucket"],
+  L4: ["Brand","Animal","Category","Format"],
+  L5: ["Animal","Category","Format","Need state","Size bucket"],
+};
+
+// Guide cards: example imagery. Each img = [filename, caption, searchTerm]
+const GUIDE_EXTRA = {
+  L0: {
+    tier: "Strictest — identical item",
+    question: "Is this exact item sold elsewhere, and at what price?",
+    exampleText: "Living World Green Botanicals Hay Cake (75 g) carries UPC 080605653931 at Pet Valu, PetSmart, and Amazon — one physical product, three storefronts, directly price-comparable.",
+    imgs: [["l0.png","Living World Green Botanicals Hay Cake 75 g — same UPC across 3 retailers","Living World Green Botanicals Hay Cake with Carrots 75 g"]],
+  },
+  L1: {
+    tier: "Very strict — same variant",
+    question: "Is the same product variant listed elsewhere when the barcode is missing?",
+    exampleText: "Blue Buffalo Wilderness Chicken Recipe Adult Dry Dog Food, 24 lb: same brand, product line, flavor, and bag size link two listings even when one retailer never published the UPC.",
+    imgs: [["l1.png","Blue Buffalo Wilderness Chicken Recipe Adult 24 lb","Blue Buffalo Wilderness Chicken Recipe Adult Dry Dog Food 24 lb"]],
+  },
+  L2: {
+    tier: "Strict — flavor-agnostic",
+    question: "Do both retailers carry this product line at the same pack size?",
+    exampleText: "Blue Buffalo Wilderness 24 lb in Chicken vs. Salmon: not the identical item, but equivalent assortment at the same size tier — useful when comparing range breadth.",
+    imgs: [
+      ["l2_a.png","Wilderness Chicken 24 lb","Blue Buffalo Wilderness Chicken Recipe Adult Dry Dog Food 24 lb"],
+      ["l2_b.png","Wilderness Salmon 24 lb","Blue Buffalo Wilderness Salmon Recipe Adult Dry Dog Food 24 lb"],
+    ],
+  },
+  L3: {
+    tier: "Moderate — size-normalized",
+    question: "What does this product line cost per pound / per unit at each retailer?",
+    exampleText: "Greenies Original Regular Dental Treats in a 12 oz pouch vs. a 27 oz tub: the same product line at different pack sizes, normalized into size buckets for unit-economics comparison.",
+    imgs: [
+      ["l3_a.png","Greenies Original Regular 12 oz","Greenies Original Regular Dental Dog Treats 12 oz"],
+      ["l3_b.png","Greenies Original Regular 27 oz","Greenies Original Regular Dental Dog Treats 27 oz"],
+    ],
+  },
+  L4: {
+    tier: "Broad — brand positioning",
+    question: "How is this brand priced and represented in this category, line by line?",
+    exampleText: "Hill's Science Diet Adult vs. Hill's Prescription Diet i/d: different product lines, but both are Hill's dry dog food — the right lens for brand-level price positioning and shelf share.",
+    imgs: [
+      ["l4_a.png","Hill's Science Diet Adult dry dog","Hill's Science Diet Adult Chicken and Barley Dry Dog Food"],
+      ["l4_b.png","Hill's Prescription Diet i/d dry dog","Hill's Prescription Diet i/d Digestive Care Dry Dog Food"],
+    ],
+  },
+  L5: {
+    tier: "Broadest — substitutes",
+    question: "Which competing products could a shopper buy instead?",
+    exampleText: "Grain-free adult dry dog food in the 20–30 lb band: Blue Buffalo Wilderness and ACANA Free-Run Poultry are different brands but functional substitutes competing for the same purchase.",
+    imgs: [
+      ["l5_a.png","Blue Buffalo Wilderness Grain-Free 24 lb","Blue Buffalo Wilderness Chicken Grain Free Adult Dry Dog Food 24 lb"],
+      ["l5_b.png","ACANA Free-Run Poultry 25 lb","ACANA Free-Run Poultry Recipe Grain Free Dry Dog Food 25 lb"],
+    ],
+  },
+};
+
+let META = null;
+let CLUSTER_CACHE = {};
+let state = {
+  selLevels: new Set(["L0"]),      // Key Metrics checkboxes
+  level: "L0",                      // Brands / Explorer pills
+  exPage: 0,
+  exPageSize: 40,
+  brandSort: { col: "clusters", asc: false },
+};
+
+/* ---------------- utilities ---------------- */
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function fmt(n){ return (n==null||n==="")?"—":Number(n).toLocaleString(); }
+function pct(a,b){ return b ? (100*a/b).toFixed(0)+"%" : "0%"; }
+function pct1(a,b){ return b ? (100*a/b).toFixed(1)+"%" : "0.0%"; }
+function provLabel(p){ return (META && META.providers[p]) || p; }
+function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
+
+async function loadMeta() {
+  const r = await fetch("meta.json");
+  if (!r.ok) throw new Error("Could not load meta.json — run build_match_dashboard.py");
+  META = await r.json();
+}
+async function loadClusters(level) {
+  if (CLUSTER_CACHE[level]) return CLUSTER_CACHE[level];
+  const r = await fetch(`clusters_${level}.json`);
+  if (!r.ok) throw new Error(`Could not load clusters_${level}.json`);
+  const d = await r.json();
+  CLUSTER_CACHE[level] = d.clusters;
+  return d.clusters;
+}
+
+function subsetKey() {
+  const sel = LEVELS.filter(l => state.selLevels.has(l));
+  return sel.join("+");
+}
+function subsetEntry() {
+  const k = subsetKey();
+  return k ? (META.overlap_subsets || {})[k] : null;
+}
+
+/* ---------------- Key Metrics page ---------------- */
+function renderLevelChecks() {
+  const el = document.getElementById("lvl-checks");
+  el.innerHTML = LEVELS.map(l => `
+    <label class="level-check ${state.selLevels.has(l)?"on":""}" data-l="${l}">
+      <input type="checkbox" ${state.selLevels.has(l)?"checked":""}>
+      <span>
+        <span class="lc-name">${l} — ${LEVEL_SHORT[l]}</span><br>
+        <span class="lc-desc">${META.levels[l].short}</span>
+      </span>
+    </label>`).join("");
+  el.querySelectorAll(".level-check").forEach(lc => {
+    lc.querySelector("input").onchange = e => {
+      const l = lc.dataset.l;
+      if (e.target.checked) state.selLevels.add(l); else state.selLevels.delete(l);
+      lc.classList.toggle("on", e.target.checked);
+      renderMetrics();
+    };
+  });
+}
+
+function renderExecSummary(e) {
+  const el = document.getElementById("exec-text");
+  if (!e) { el.innerHTML = "<p class='muted'>Select at least one match level above.</p>"; return; }
+  const sel = LEVELS.filter(l => state.selLevels.has(l));
+  const lvlNames = sel.map(l => `${l} (${LEVEL_SHORT[l].toLowerCase()})`).join(", ");
+  const pv = e.petvalu;
+  // biggest overlap partner for PV
+  let bestQ = null, bestN = -1;
+  for (const q in pv.pairs) {
+    if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
+  }
+  const bc = META.brand_catalog || {};
+  const pvB = bc.petvalu;
+  const brandShared = pvB ? (pvB.total - pvB.n0) : null;
+
+  let html = `<p style="font-size:.95rem">
+    At the selected match strictness — ${esc(lvlNames)} —
+    <strong>${fmt(pv.shared)}</strong> of Pet Valu’s <strong>${fmt(pv.total)}</strong> SKUs
+    (<strong>${pct1(pv.shared, pv.total)}</strong>) are also available at at least one of
+    PetSmart, Chewy, or Amazon.ca. The remaining <strong>${fmt(pv.exclusive)}</strong> SKUs
+    (${pct1(pv.exclusive, pv.total)}) are exclusive to Pet Valu at this strictness.</p>`;
+  html += `<p style="font-size:.95rem">
+    The largest single source of overlap is <strong>${provLabel(bestQ)}</strong>, which carries
+    <strong>${fmt(bestN)}</strong> of Pet Valu’s SKUs (${pct1(bestN, pv.total)} of the catalog).
+    <strong>${fmt(pv.n3)}</strong> Pet Valu SKUs are carried by all four retailers.</p>`;
+  if (pvB) {
+    html += `<p style="font-size:.95rem">
+      Brand overlap is much broader than SKU overlap: <strong>${fmt(brandShared)}</strong> of Pet Valu’s
+      <strong>${fmt(pvB.total)}</strong> brands (${pct1(brandShared, pvB.total)}) also appear at a competitor,
+      and ${fmt(pvB.n3)} brands are carried by all four retailers — competitors stock the same brands
+      but often a different mix of items within them.</p>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderKpis(e) {
+  const el = document.getElementById("m-kpis");
+  if (!e) { el.innerHTML = ""; return; }
+  const pv = e.petvalu;
+  let bestQ = null, bestN = -1;
+  for (const q in pv.pairs) if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
+  el.innerHTML = `
+    <div class="kpi"><div class="val">${fmt(pv.shared)} <small>(${pct(pv.shared,pv.total)})</small></div>
+      <div class="lbl">Pet Valu SKUs shared with any competitor</div></div>
+    <div class="kpi"><div class="val">${fmt(pv.exclusive)} <small>(${pct(pv.exclusive,pv.total)})</small></div>
+      <div class="lbl">Pet Valu SKUs exclusive at this strictness</div></div>
+    <div class="kpi"><div class="val">${fmt(pv.n3)}</div>
+      <div class="lbl">Pet Valu SKUs carried by all 4 retailers</div></div>
+    <div class="kpi"><div class="val">${provLabel(bestQ)}</div>
+      <div class="lbl">Largest overlap partner (${fmt(bestN)} shared SKUs)</div></div>`;
+}
+
+function deckTable(rows, colProviders) {
+  // rows: [{label, cls, values:{p:count}}]; renders count block + % block
+  let html = `<thead><tr><th></th>`;
+  colProviders.forEach(p => html += `<th>${provLabel(p)}</th>`);
+  colProviders.forEach((p,i) => html += `<th class="${i===0?"divider":""}">${provLabel(p)} %</th>`);
+  html += `</tr></thead><tbody>`;
+  const totals = {};
+  rows.forEach(r => { if (r.isTotal) colProviders.forEach(p => totals[p] = r.values[p]); });
+  rows.forEach(r => {
+    html += `<tr class="${r.cls||""}"><td>${r.label}</td>`;
+    colProviders.forEach(p => html += `<td>${fmt(r.values[p])}</td>`);
+    colProviders.forEach((p,i) => {
+      const t = totals[p];
+      html += `<td class="${i===0?"divider":""}">${t ? pct(r.values[p], t) : "—"}</td>`;
+    });
+    html += `</tr>`;
+  });
+  return html + `</tbody>`;
+}
+
+function renderSkuDeck(e) {
+  const tbl = document.getElementById("sku-deck");
+  if (!e) { tbl.innerHTML = ""; return; }
+  const v = k => Object.fromEntries(PROVIDERS.map(p => [p, e[p][k]]));
+  const sharedVals = Object.fromEntries(PROVIDERS.map(p => [p, e[p].shared]));
+  tbl.innerHTML = deckTable([
+    { label: "Total SKUs", cls: "total", isTotal: true, values: v("total") },
+    { label: "Exclusive SKUs", cls: "section", values: v("exclusive") },
+    { label: "Shared SKUs", cls: "section", values: sharedVals },
+    { label: "…with 1 other retailer", cls: "indent", values: v("n1") },
+    { label: "…with 2 other retailers", cls: "indent", values: v("n2") },
+    { label: "…by all 4 retailers", cls: "indent", values: v("n3") },
+  ], PROVIDERS);
+}
+
+function renderBrandDeck() {
+  const bc = META.brand_catalog;
+  const tbl = document.getElementById("brand-deck");
+  if (!bc) { tbl.innerHTML = ""; return; }
+  const v = k => Object.fromEntries(PROVIDERS.map(p => [p, bc[p][k]]));
+  const shared = Object.fromEntries(PROVIDERS.map(p => [p, bc[p].total - bc[p].n0]));
+  tbl.innerHTML = deckTable([
+    { label: "Total brands", cls: "total", isTotal: true, values: v("total") },
+    { label: "Exclusive brands", cls: "section", values: v("n0") },
+    { label: "Shared brands", cls: "section", values: shared },
+    { label: "…with 1 other retailer", cls: "indent", values: v("n1") },
+    { label: "…with 2 other retailers", cls: "indent", values: v("n2") },
+    { label: "…by all 4 retailers", cls: "indent", values: v("n3") },
+  ], PROVIDERS);
+}
+
+function renderStacks(e) {
+  const el = document.getElementById("stack-bars");
+  if (!e) { el.innerHTML = ""; return; }
+  el.innerHTML = PROVIDERS.map(p => {
+    const d = e[p];
+    const segs = [
+      ["excl", d.exclusive, "Exclusive"],
+      ["s1", d.n1, "1 other"],
+      ["s2", d.n2, "2 others"],
+      ["s3", d.n3, "All 4"],
+    ];
+    const inner = segs.map(([cls, n, lbl]) => {
+      const w = d.total ? 100*n/d.total : 0;
+      const txt = w > 7 ? `${fmt(n)} (${pct(n, d.total)})` : (w > 3.5 ? pct(n, d.total) : "");
+      return `<div class="seg ${cls}" style="width:${w}%" title="${lbl}: ${fmt(n)} SKUs (${pct1(n,d.total)})">${txt}</div>`;
+    }).join("");
+    return `<div class="stack-row">
+      <div class="stack-label">${provLabel(p)}</div>
+      <div class="stack-track">${inner}</div>
+      <div class="stack-total">${fmt(d.total)} SKUs</div>
+    </div>`;
+  }).join("");
+}
+
+function renderHeat(e) {
+  const tbl = document.getElementById("heat-table");
+  if (!e) { tbl.innerHTML = ""; return; }
+  let html = `<thead><tr><th>SKUs of ↓ also at →</th>`;
+  PROVIDERS.forEach(p => html += `<th>${provLabel(p)}</th>`);
+  html += `</tr></thead><tbody>`;
+  PROVIDERS.forEach(p => {
+    html += `<tr><th>${provLabel(p)}</th>`;
+    PROVIDERS.forEach(q => {
+      if (p === q) { html += `<td class="diag">—</td>`; return; }
+      const n = e[p].pairs[q].total;
+      const share = e[p].total ? n / e[p].total : 0;
+      const alpha = Math.min(0.92, share * 2.2 + 0.04);
+      const fg = alpha > 0.55 ? "#fff" : "var(--text)";
+      html += `<td style="background:rgba(22,63,97,${alpha.toFixed(2)});color:${fg}">
+        <div class="h-pct">${pct1(n, e[p].total)}</div>
+        <div class="h-cnt">${fmt(n)} SKUs</div></td>`;
+    });
+    html += `</tr>`;
+  });
+  tbl.innerHTML = html + `</tbody>`;
+}
+
+function renderMetrics() {
+  const e = subsetEntry();
+  renderExecSummary(e);
+  renderKpis(e);
+  renderSkuDeck(e);
+  renderStacks(e);
+  renderHeat(e);
+  renderBrandDeck();
+}
+
+/* ---------------- Levels Guide page ---------------- */
+function imgSlot(file, caption, search) {
+  const gi = (META.guide_images || {})[file];
+  const credit = gi && gi.status === "ok"
+    ? `<div class="img-credit">Photo: ${provLabel(gi.retailer) || gi.retailer}</div>` : "";
+  return `<figure class="imgslot">
+    <img src="img/${file}" alt="${esc(caption)}" loading="lazy"
+         onerror="this.parentElement.classList.add('missing')">
+    <div class="img-ph">
+      <div><strong>Image pending</strong></div>
+      <div class="ph-file">img/${file}</div>
+      <div>Run <code>build_match_dashboard.py</code> to fetch from scraped URLs.</div>
+      <div>Search: “${esc(search)}”</div>
+    </div>
+    <figcaption>${esc(caption)}${credit}</figcaption>
+  </figure>`;
+}
+
+function renderMatrixTable() {
+  const tbl = document.getElementById("matrix-table");
+  let html = `<thead><tr><th>Level</th>`;
+  MATRIX_COLS.forEach(c => html += `<th>${c}</th>`);
+  html += `<th>PV match rate</th></tr></thead><tbody>`;
+  LEVELS.forEach(l => {
+    const req = new Set(MATRIX[l]);
+    const rate = (META.summary.levels[l] || {}).match_rate_pct_by_provider?.petvalu;
+    html += `<tr><td><strong>${l}</strong> · ${LEVEL_SHORT[l]}</td>`;
+    MATRIX_COLS.forEach(c => {
+      html += req.has(c) ? `<td class="dot">●</td>` : `<td class="no">—</td>`;
+    });
+    html += `<td><strong>${rate != null ? rate + "%" : "—"}</strong></td></tr>`;
+  });
+  tbl.innerHTML = html + `</tbody>`;
+}
+
+function renderGuideCards() {
+  const el = document.getElementById("guide-cards");
+  el.innerHTML = LEVELS.map(l => {
+    const m = META.levels[l];
+    const x = GUIDE_EXTRA[l];
+    const s = META.summary.levels[l] || {};
+    const imgs = x.imgs.map(([f, cap, srch]) => imgSlot(f, cap, srch));
+    const imgsHtml = imgs.length === 2
+      ? imgs[0] + `<div class="vs-sep">vs.</div>` + imgs[1]
+      : imgs.join("");
+    return `<div class="guide-card">
+      <div class="guide-head">
+        <span class="guide-badge">${l}</span>
+        <h3>${esc(m.name.replace(/^L\d+\s*—\s*/, ""))}</h3>
+        <span class="guide-tier">${x.tier}</span>
+      </div>
+      <div class="guide-body">
+        <div>
+          <div class="guide-q"><strong>Business question:</strong> ${esc(x.question)}</div>
+          <p class="guide-def">${esc(m.definition)}</p>
+          <div class="guide-use"><strong>When to use it:</strong> ${esc(m.use_case)}</div>
+          <div class="guide-stats">
+            <div class="guide-stat"><div class="gs-val">${fmt(s.clusters)}</div><div class="gs-lbl">cross-retailer clusters</div></div>
+            <div class="guide-stat"><div class="gs-val">${fmt(s.skus_in_cross_clusters)}</div><div class="gs-lbl">SKUs involved</div></div>
+            <div class="guide-stat"><div class="gs-val">${s.match_rate_pct_by_provider?.petvalu ?? "—"}%</div><div class="gs-lbl">of Pet Valu catalog matched</div></div>
+          </div>
+        </div>
+        <div class="guide-example">
+          <h4>Example</h4>
+          <p class="ex-text">${esc(x.exampleText)}</p>
+          <div class="ex-imgs">${imgsHtml}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------- Brands page ---------------- */
+function levelPills(containerId, onChange) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = LEVELS.map(l =>
+    `<button class="level-pill${l===state.level?" active":""}" data-l="${l}">${l} · ${META.levels[l].short}</button>`
+  ).join("");
+  el.querySelectorAll(".level-pill").forEach(btn => {
+    btn.onclick = () => { state.level = btn.dataset.l; syncPills(); onChange(); };
+  });
+}
+function syncPills() {
+  document.querySelectorAll(".level-pill").forEach(p =>
+    p.classList.toggle("active", p.dataset.l === state.level));
+  document.querySelectorAll(".brand-lvl-label,.ex-lvl-label").forEach(e =>
+    e.textContent = state.level);
+}
+
+function renderBrandPage() {
+  const rows = META.brand_overlap[state.level] || [];
+  const q = (document.getElementById("brand-search").value || "").toLowerCase();
+  const minP = +document.getElementById("brand-min-prov").value;
+  const sortCol = state.brandSort.col;
+
+  let filtered = rows.filter(r => r.n_providers >= minP && (!q || r.brand.includes(q)));
+  filtered.sort((a,b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va < vb) return state.brandSort.asc ? -1 : 1;
+    if (va > vb) return state.brandSort.asc ? 1 : -1;
+    return 0;
+  });
+
+  document.getElementById("brand-count-lbl").textContent =
+    `Showing ${fmt(filtered.length)} of ${fmt(rows.length)} brands`;
+  document.querySelector("#brand-table tbody").innerHTML = filtered.slice(0, 500).map(r => `
+    <tr>
+      <td>${esc(r.brand)}</td>
+      <td class="num">${r.n_providers}</td>
+      <td>${provTags(r.providers)}</td>
+      <td class="num">${fmt(r.clusters)}</td>
+      <td class="num">${fmt(r.sku_rows)}</td>
+    </tr>`).join("");
+}
+
+function exportBrandCsv() {
+  const rows = META.brand_overlap[state.level] || [];
+  const q = (document.getElementById("brand-search").value || "").toLowerCase();
+  const minP = +document.getElementById("brand-min-prov").value;
+  const filtered = rows.filter(r => r.n_providers >= minP && (!q || r.brand.includes(q)));
+  const lines = ["brand,n_providers,providers,clusters,sku_rows"];
+  filtered.forEach(r => lines.push([r.brand, r.n_providers, r.providers.join(";"), r.clusters, r.sku_rows].join(",")));
+  const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `brand_overlap_${state.level}.csv`;
+  a.click();
+}
+
+/* ---------------- Explorer page ---------------- */
+async function renderExplorer() {
+  const l = state.level;
+  const clusters = await loadClusters(l);
+  const q = (document.getElementById("ex-search").value || "").toLowerCase();
+  const region = document.getElementById("ex-region").value;
+  const prov = document.getElementById("ex-prov").value;
+  const minN = +document.getElementById("ex-min-n").value || 2;
+
+  const regionSel = document.getElementById("ex-region");
+  const regions = [...new Set(clusters.map(c => c.region))].sort();
+  const prevR = regionSel.value;
+  regionSel.innerHTML = '<option value="">All</option>' +
+    regions.map(r => `<option value="${r}">${META.region_labels[r]||r}</option>`).join("");
+  regionSel.value = prevR || "";
+
+  let filtered = clusters.filter(c => {
+    if (c.member_count < minN) return false;
+    if (region && c.region !== region) return false;
+    if (prov && !c.providers.includes(prov)) return false;
+    if (q) {
+      const hay = (c.brands.join(" ") + " " + c.match_key + " " +
+        c.members.map(m => m.title + " " + m.brand + " " + m.sku).join(" ")).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const total = filtered.length;
+  const pages = Math.ceil(total / state.exPageSize) || 1;
+  if (state.exPage >= pages) state.exPage = 0;
+  const slice = filtered.slice(state.exPage * state.exPageSize, (state.exPage+1) * state.exPageSize);
+
+  document.getElementById("ex-summary").textContent =
+    `${fmt(total)} clusters match your filters` +
+    ((l === "L4" || l === "L5") ? " (L4/L5 show a sample of SKUs per cluster; full data is in the clusters CSV files)" : "");
+
+  document.getElementById("ex-list").innerHTML = slice.map(c => `
+    <div class="cluster-card">
+      <div class="cluster-head" onclick="this.parentElement.classList.toggle('open')">
+        <strong>${c.id}</strong>
+        ${provTags(c.providers)}
+        <span class="cluster-meta">${esc(c.region_label)} · ${fmt(c.member_count)} SKUs · ${c.brand_count} brands</span>
+      </div>
+      <div class="cluster-body">
+        <p class="muted">Match key: <code>${esc(c.match_key)}</code></p>
+        ${c.members_truncated ? "<p class='muted'>Showing sample SKUs only.</p>" : ""}
+        <table class="data">
+          <thead><tr><th>Retailer</th><th>SKU</th><th>Brand</th><th>Title</th><th>Size</th></tr></thead>
+          <tbody>${c.members.map(m => `
+            <tr>
+              <td>${provTags([m.provider])}</td>
+              <td>${esc(m.sku)}</td>
+              <td>${esc(m.brand)}</td>
+              <td>${esc(m.title)}</td>
+              <td>${esc(m.size !== "none" ? m.size : m.size_bucket)}</td>
+            </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>`).join("") || "<p class='muted'>No clusters match.</p>";
+
+  document.getElementById("ex-pager").innerHTML = total > state.exPageSize
+    ? `Page ${state.exPage+1} of ${pages} — ` +
+      `<button class="btn secondary" id="ex-prev" ${state.exPage?"":"disabled"}>Prev</button> ` +
+      `<button class="btn secondary" id="ex-next" ${state.exPage<pages-1?"":"disabled"}>Next</button>`
+    : "";
+  const prev = document.getElementById("ex-prev");
+  const next = document.getElementById("ex-next");
+  if (prev) prev.onclick = () => { state.exPage--; renderExplorer(); };
+  if (next) next.onclick = () => { state.exPage++; renderExplorer(); };
+}
+
+/* ---------------- init ---------------- */
+function initNav() {
+  document.querySelectorAll("nav.tabs button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("page-" + btn.dataset.page).classList.add("active");
+    };
+  });
+}
+
+async function init() {
+  initNav();
+  try {
+    await loadMeta();
+    document.getElementById("server-hint").style.display = "none";
+    document.getElementById("hdr-title").textContent = META.title;
+    document.getElementById("hdr-sub").textContent =
+      META.subtitle + (META.generated_at ? " · Updated " + META.generated_at : "");
+
+    renderLevelChecks();
+    renderMetrics();
+    renderMatrixTable();
+    renderGuideCards();
+
+    levelPills("brand-levels", renderBrandPage);
+    levelPills("ex-levels", () => { state.exPage = 0; renderExplorer(); });
+    syncPills();
+
+    document.getElementById("brand-search").oninput = renderBrandPage;
+    document.getElementById("brand-min-prov").onchange = renderBrandPage;
+    document.getElementById("brand-sort").onchange = e => { state.brandSort.col = e.target.value; renderBrandPage(); };
+    document.querySelectorAll("#brand-table th[data-sort]").forEach(th => {
+      th.onclick = () => {
+        const col = th.dataset.sort;
+        if (state.brandSort.col === col) state.brandSort.asc = !state.brandSort.asc;
+        else { state.brandSort.col = col; state.brandSort.asc = col === "brand"; }
+        renderBrandPage();
+      };
+    });
+    document.getElementById("brand-export").onclick = exportBrandCsv;
+    document.getElementById("ex-apply").onclick = () => { state.exPage = 0; renderExplorer(); };
+    document.getElementById("ex-search").onkeydown = e => {
+      if (e.key === "Enter") { state.exPage = 0; renderExplorer(); }
+    };
+    document.getElementById("ex-reset").onclick = () => {
+      document.getElementById("ex-search").value = "";
+      document.getElementById("ex-region").value = "";
+      document.getElementById("ex-prov").value = "";
+      document.getElementById("ex-min-n").value = "2";
+      state.exPage = 0;
+      renderExplorer();
+    };
+
+    renderBrandPage();
+    await renderExplorer();
+  } catch (e) {
+    document.getElementById("load-err").style.display = "block";
+    document.getElementById("load-err").textContent = e.message;
+    document.getElementById("server-hint").style.display = "block";
+  }
+}
+init();
+</script>
+</body>
+</html>
