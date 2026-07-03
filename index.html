@@ -232,6 +232,12 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   flex-shrink: 0;
 }
 .universe-counts { font-size: .78rem; color: var(--muted); text-align: right; line-height: 1.5; }
+.universe-badge {
+  display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; padding: .2rem .55rem; border-radius: 4px; margin-left: .35rem;
+  background: #d4edda; color: #1e5631; vertical-align: middle;
+}
+.universe-badge.all { background: #fff3cd; color: #856404; }
 </style>
 </head>
 <body>
@@ -259,7 +265,9 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <label class="toggle-row">
       <input type="checkbox" id="catdog-toggle" checked>
       <span>
-        <strong>Cat &amp; dog products only</strong> — same universe as the original deck analysis
+        <strong>Cat &amp; dog products only</strong>
+        <span class="universe-badge" id="universe-badge">Cat/dog universe</span>
+        — same universe as the original deck analysis
         (<code>pet_type</code> for Pet Valu / PetSmart / Chewy; title keywords for Amazon).
         Turn off to include all scraped SKUs (small animal, fish, bird, general merchandise, etc.).
       </span>
@@ -354,7 +362,26 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
         <div class="strip"></div>
         <span>Broadest — substitute products</span>
       </div>
-      <h2 style="font-size:1rem">What each level requires to match</h2>
+      <h2 style="font-size:1rem">How levels relate to each other</h2>
+      <div class="card" style="margin-top:.5rem; background:#f8fbfd">
+        <p style="margin:0 0 .65rem; font-size:.9rem">
+          <strong>Each level is its own independent match rule</strong> — not a bucket that excludes other levels.
+          L1 does <em>not</em> mean “matched at L1 but not L0.” It means “these SKUs share the same L1 key,”
+          whether or not they also share a barcode.
+        </p>
+        <ul style="margin:0 0 .65rem; padding-left:1.2rem; font-size:.88rem; color:var(--muted)">
+          <li><strong>L0</strong> clusters by exact GTIN/UPC only — no attribute keys involved.</li>
+          <li><strong>L1–L5</strong> each build separate clusters from their own attribute key (see matrix below).
+            A pair can match at L4 without matching at L0, or match at L0 and also at every broader level if attributes align.</li>
+          <li><strong>Strictness increases L0 → L5</strong> (fewer false positives), but levels are <em>not</em> mutually exclusive partitions of the catalog.</li>
+          <li><strong>Level checkboxes on Key Metrics use OR (union):</strong> a SKU counts as “shared” if it matched a competitor at <em>any</em> selected level.</li>
+        </ul>
+        <p style="margin:0; font-size:.85rem; color:var(--muted)">
+          Within a single level, each SKU belongs to exactly one cluster at that level.
+          Across levels, the same two products may sit in different clusters because the grouping rules differ.
+        </p>
+      </div>
+      <h2 style="font-size:1rem; margin-top:1.1rem">What each level requires to match</h2>
       <div style="overflow:auto; margin-top:.5rem">
         <table class="matrix" id="matrix-table"></table>
       </div>
@@ -538,25 +565,47 @@ let state = {
 
 function U() {
   if (!META) return {};
-  return (META.universes && META.universes[state.universe]) || META;
+  const u = META.universes && META.universes[state.universe];
+  if (u) return u;
+  return META;
+}
+
+function catalogTotals() {
+  const u = U();
+  return u.catalog_totals || u.providers || {};
+}
+
+function renderUniverseBadge() {
+  const el = document.getElementById("universe-badge");
+  if (!el) return;
+  const catdog = state.universe === "catdog";
+  el.textContent = catdog ? "Cat/dog universe" : "All SKUs";
+  el.className = "universe-badge" + (catdog ? "" : " all");
 }
 
 function renderUniverseCounts() {
   const el = document.getElementById("universe-counts");
   if (!el || !META) return;
-  const p = U().providers || {};
+  const p = catalogTotals();
   const parts = PROVIDERS.map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
   el.innerHTML = `<strong>${state.universe === "catdog" ? "Cat/dog SKUs" : "All SKUs"}</strong><br>${parts.join(" · ")}`;
+}
+
+function refreshDashboard() {
+  renderUniverseBadge();
+  renderUniverseCounts();
+  renderMetrics();
+  renderMatrixTable();
+  renderGuideCards();
+  renderBrandPage();
+  renderExplorer();
 }
 
 function onUniverseChange() {
   const on = document.getElementById("catdog-toggle").checked;
   state.universe = on ? "catdog" : "all";
   state.exPage = 0;
-  renderUniverseCounts();
-  renderMetrics();
-  renderBrandPage();
-  renderExplorer();
+  refreshDashboard();
 }
 
 /* ---------------- utilities ---------------- */
@@ -564,13 +613,21 @@ function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;")
 function fmt(n){ return (n==null||n==="")?"—":Number(n).toLocaleString(); }
 function pct(a,b){ return b ? (100*a/b).toFixed(0)+"%" : "0%"; }
 function pct1(a,b){ return b ? (100*a/b).toFixed(1)+"%" : "0.0%"; }
-function provLabel(p){ return (META && META.providers[p]) || p; }
+function provLabel(p) {
+  if (!META || !p) return p || "";
+  if (META.provider_labels && META.provider_labels[p]) return META.provider_labels[p];
+  const v = META.providers && META.providers[p];
+  return (typeof v === "string" ? v : null) || p;
+}
 function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
 
 async function loadMeta() {
-  const r = await fetch("meta.json");
+  const r = await fetch("meta.json?_=" + Date.now());
   if (!r.ok) throw new Error("Could not load meta.json — run build_match_dashboard.py");
   META = await r.json();
+  if (!META.universes || !META.universes.all || !META.universes.catdog) {
+    throw new Error("meta.json is missing universes — re-run build_match_dashboard.py and hard-refresh (Ctrl+F5)");
+  }
 }
 async function loadClusters(level) {
   if (CLUSTER_CACHE[level]) return CLUSTER_CACHE[level];
@@ -790,6 +847,12 @@ function imgSlot(file, caption, search) {
   </figure>`;
 }
 
+function pvRateForLevel(l) {
+  const rows = U().pv_overlap || META.pv_overlap || [];
+  const row = rows.find(r => r.level === l);
+  return row != null ? row.pv_match_pct : null;
+}
+
 function renderMatrixTable() {
   const tbl = document.getElementById("matrix-table");
   let html = `<thead><tr><th>Level</th>`;
@@ -797,7 +860,7 @@ function renderMatrixTable() {
   html += `<th>PV match rate</th></tr></thead><tbody>`;
   LEVELS.forEach(l => {
     const req = new Set(MATRIX[l]);
-    const rate = (META.summary.levels[l] || {}).match_rate_pct_by_provider?.petvalu;
+    const rate = pvRateForLevel(l);
     html += `<tr><td><strong>${l}</strong> · ${LEVEL_SHORT[l]}</td>`;
     MATRIX_COLS.forEach(c => {
       html += req.has(c) ? `<td class="dot">●</td>` : `<td class="no">—</td>`;
@@ -813,6 +876,7 @@ function renderGuideCards() {
     const m = META.levels[l];
     const x = GUIDE_EXTRA[l];
     const s = META.summary.levels[l] || {};
+    const rate = pvRateForLevel(l);
     const imgs = x.imgs.map(([f, cap, srch]) => imgSlot(f, cap, srch));
     const imgsHtml = imgs.length === 2
       ? imgs[0] + `<div class="vs-sep">vs.</div>` + imgs[1]
@@ -831,7 +895,7 @@ function renderGuideCards() {
           <div class="guide-stats">
             <div class="guide-stat"><div class="gs-val">${fmt(s.clusters)}</div><div class="gs-lbl">cross-retailer clusters</div></div>
             <div class="guide-stat"><div class="gs-val">${fmt(s.skus_in_cross_clusters)}</div><div class="gs-lbl">SKUs involved</div></div>
-            <div class="guide-stat"><div class="gs-val">${s.match_rate_pct_by_provider?.petvalu ?? "—"}%</div><div class="gs-lbl">of Pet Valu catalog matched</div></div>
+            <div class="guide-stat"><div class="gs-val">${rate != null ? rate + "%" : (s.match_rate_pct_by_provider?.petvalu ?? "—") + "%"}</div><div class="gs-lbl">of Pet Valu catalog matched</div></div>
           </div>
         </div>
         <div class="guide-example">
@@ -1008,9 +1072,11 @@ async function init() {
       META.subtitle + (META.generated_at ? " · Updated " + META.generated_at : "");
 
     state.universe = META.default_universe || "catdog";
-    document.getElementById("catdog-toggle").checked = state.universe === "catdog";
-    document.getElementById("catdog-toggle").onchange = onUniverseChange;
+    const toggle = document.getElementById("catdog-toggle");
+    toggle.checked = state.universe === "catdog";
+    toggle.onchange = onUniverseChange;
 
+    renderUniverseBadge();
     renderUniverseCounts();
 
     renderLevelChecks();
