@@ -140,6 +140,24 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 .prov-petsmart { background: var(--ps); }
 .prov-chewy { background: var(--ch); }
 .prov-amazon { background: var(--am); }
+.prov-amazon_1p { background: #e47911; }
+.prov-walmart { background: #0071ce; }
+.prov-loblaws { background: #da291c; }
+
+.retailer-bar {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: .85rem 1.1rem; margin-bottom: 1rem;
+}
+.retailer-bar h2 { margin: 0 0 .35rem; font-size: 1rem; }
+.retailer-presets { display: flex; flex-wrap: wrap; gap: .45rem; margin: .55rem 0 .65rem; }
+.retailer-presets button {
+  padding: .35rem .75rem; border-radius: 999px; border: 1px solid var(--border);
+  background: #fff; cursor: pointer; font-size: .82rem;
+}
+.retailer-presets button.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
+.retailer-checks { display: flex; flex-wrap: wrap; gap: .65rem 1.1rem; font-size: .88rem; }
+.retailer-checks label { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
+.retailer-note { margin: .55rem 0 0; font-size: .82rem; color: var(--muted); }
 
 /* ---- guide ---- */
 .tier-strip {
@@ -276,6 +294,17 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     and open <code>http://localhost:8080/</code>.
   </div>
 
+  <div class="retailer-bar" id="retailer-bar">
+    <h2>Retailers in view</h2>
+    <p class="muted" style="margin:0 0 .2rem;font-size:.88rem">
+      SKU overlap uses one primary GTIN per listing — same methodology as
+      <code>A_OverlapSummary_Old4</code> / <code>A_OverlapSummary_New6</code> in the Excel workbook.
+    </p>
+    <div class="retailer-presets" id="retailer-presets"></div>
+    <div class="retailer-checks" id="retailer-checks"></div>
+    <p class="retailer-note" id="retailer-note"></p>
+  </div>
+
   <div class="universe-bar" id="universe-bar">
     <label class="toggle-row">
       <input type="checkbox" id="catdog-toggle" checked>
@@ -311,8 +340,9 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="card">
       <h2>SKU overlap by retailer</h2>
       <p class="sub">
-        For each retailer: how many of its SKUs are exclusive vs. shared with 1, 2,
-        or all 3 other retailers, at the selected match strictness (cumulative).
+        For each retailer: exclusive vs. shared SKUs by exact primary GTIN at the selected retailers
+        (matches Excel <code>A_OverlapSummary</code> methodology). Use L0 strictness for identical
+        barcode; L1–L3 broaden semantic matching in the cluster explorer.
       </p>
       <div style="overflow:auto"><table class="deck" id="sku-deck"></table></div>
     </div>
@@ -481,8 +511,11 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 <script>
 const LEVELS = ["L0","L1","L2","L3"];
-const PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
-const PROV_CLS = { petvalu:"prov-petvalu", petsmart:"prov-petsmart", chewy:"prov-chewy", amazon:"prov-amazon" };
+const CLUSTER_PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
+const PROV_CLS = {
+  petvalu:"prov-petvalu", petsmart:"prov-petsmart", chewy:"prov-chewy", amazon:"prov-amazon",
+  amazon_1p:"prov-amazon_1p", walmart:"prov-walmart", loblaws:"prov-loblaws",
+};
 
 const LEVEL_SHORT = {
   L0: "Exact barcode (UPC/GTIN)",
@@ -541,10 +574,92 @@ let state = {
   universe: "catdog",
   maxStrictness: "L2",
   level: "L0",
+  selectedRetailers: ["petvalu","petsmart","chewy","amazon"],
+  activePreset: "old4",
   exPage: 0,
   exPageSize: 40,
   brandSort: { col: "clusters", asc: false },
 };
+
+function allRetailers() {
+  return META?.all_retailers || CLUSTER_PROVIDERS;
+}
+
+function activeRetailers() {
+  return state.selectedRetailers.filter(r => allRetailers().includes(r));
+}
+
+function exactCatalog() {
+  const u = U();
+  return u.exact_gtin?.catalog || META.exact_gtin?.catalog || {};
+}
+
+function computeExactOverlap(selected) {
+  const catalog = exactCatalog();
+  const retailers = selected.filter(r => catalog[r]);
+  const nret = retailers.length;
+  if (!nret) return { overlap: {}, universal: 0, retailers: [] };
+
+  const keySets = {};
+  retailers.forEach(r => { keySets[r] = new Set((catalog[r] || []).filter(Boolean)); });
+  let universal = new Set(keySets[retailers[0]]);
+  for (let i = 1; i < retailers.length; i++) {
+    universal = new Set([...universal].filter(g => keySets[retailers[i]].has(g)));
+  }
+  const union = new Set();
+  retailers.forEach(r => keySets[r].forEach(g => union.add(g)));
+  const keyPresence = {};
+  union.forEach(g => {
+    keyPresence[g] = retailers.map(r => keySets[r].has(g) ? 1 : 0);
+  });
+
+  const overlap = {};
+  retailers.forEach((r, ownIdx) => {
+    const gtins = catalog[r] || [];
+    const levels = {};
+    const pairs = {};
+    retailers.forEach(q => { if (q !== r) pairs[q] = { total: 0, buckets: {} }; });
+
+    gtins.forEach(g => {
+      const flags = g ? keyPresence[g] : null;
+      const level = flags ? flags.reduce((a, b) => a + b, 0) : 1;
+      levels[level] = (levels[level] || 0) + 1;
+      if (!flags) return;
+      retailers.forEach((q, targetIdx) => {
+        if (targetIdx === ownIdx || !flags[targetIdx]) return;
+        pairs[q].buckets[level] = (pairs[q].buckets[level] || 0) + 1;
+        pairs[q].total++;
+      });
+    });
+
+    const nBuckets = [];
+    for (let n = 2; n < nret; n++) nBuckets.push(levels[n] || 0);
+    const pairOut = {};
+    Object.keys(pairs).forEach(q => {
+      const pb = pairs[q].buckets;
+      pairOut[q] = {
+        total: pairs[q].total,
+        n1: pb[2] || 0,
+        n2: pb[3] || 0,
+        n3: pb[4] || 0,
+        buckets: Array.from({ length: nret - 1 }, (_, i) => pb[i + 2] || 0),
+      };
+    });
+
+    const total = gtins.length;
+    const exclusive = levels[1] || 0;
+    overlap[r] = {
+      total, exclusive, shared: total - exclusive,
+      n_buckets: nBuckets,
+      n_all: universal.size,
+      n1: levels[2] || 0,
+      n2: levels[3] || 0,
+      n3: levels[4] || 0,
+      pairs: pairOut,
+    };
+  });
+  return { overlap, universal: universal.size, retailers };
+}
 
 function U() {
   if (!META) return {};
@@ -622,8 +737,23 @@ async function loadClusters(level) {
 }
 
 function strictnessEntry() {
+  const selected = activeRetailers();
+  if (state.maxStrictness === "L0") {
+    return computeExactOverlap(selected).overlap;
+  }
   const subs = U().overlap_by_strictness || META.overlap_by_strictness || {};
-  return subs[state.maxStrictness] || null;
+  const raw = subs[state.maxStrictness] || null;
+  if (!raw) return null;
+  const clusterSet = new Set(CLUSTER_PROVIDERS);
+  const use = selected.filter(r => clusterSet.has(r));
+  if (!use.length) return computeExactOverlap(selected).overlap;
+  const out = {};
+  use.forEach(p => { if (raw[p]) out[p] = raw[p]; });
+  return out;
+}
+
+function overlapForView() {
+  return computeExactOverlap(activeRetailers()).overlap;
 }
 
 function renderStrictnessControl() {
@@ -669,51 +799,69 @@ function renderExecSummary(e) {
   const el = document.getElementById("exec-text");
   if (!e) { el.innerHTML = "<p class='muted'>Match data unavailable.</p>"; return; }
   const maxL = state.maxStrictness;
+  const providers = activeRetailers();
   const pv = e.petvalu;
-  // biggest overlap partner for PV
+  if (!pv) { el.innerHTML = "<p class='muted'>Pet Valu not in selected retailers.</p>"; return; }
   let bestQ = null, bestN = -1;
   for (const q in pv.pairs) {
     if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
   }
-  const bc = U().brand_catalog || META.brand_catalog || {};
+  const bc = brandCatalogForView();
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
+  const nAll = pv.n_all ?? pv.n3 ?? 0;
+  const method = state.maxStrictness === "L0"
+    ? "exact primary GTIN (one barcode per SKU)"
+    : `${maxL} semantic match strictness`;
 
   let html = `<p style="font-size:.95rem">
-    At match strictness <strong>${maxL}</strong> (${LEVEL_SHORT[maxL].toLowerCase()}) —
-    including all stricter matches —
+    With <strong>${providers.length}</strong> retailers selected and overlap at
+    <strong>${method}</strong>,
     <strong>${fmt(pv.shared)}</strong> of Pet Valu’s <strong>${fmt(pv.total)}</strong> SKUs
-    (<strong>${pct1(pv.shared, pv.total)}</strong>) are also available at at least one of
-    PetSmart, Chewy, or Amazon.ca. The remaining <strong>${fmt(pv.exclusive)}</strong> SKUs
-    (${pct1(pv.exclusive, pv.total)}) are exclusive to Pet Valu at this strictness.</p>`;
-  html += `<p style="font-size:.95rem">
-    The largest single source of overlap is <strong>${provLabel(bestQ)}</strong>, which carries
-    <strong>${fmt(bestN)}</strong> of Pet Valu’s SKUs (${pct1(bestN, pv.total)} of the catalog).
-    <strong>${fmt(pv.n3)}</strong> Pet Valu SKUs are carried by all four retailers.</p>`;
+    (<strong>${pct1(pv.shared, pv.total)}</strong>) share a qualifying barcode with at least one other
+    selected retailer. The remaining <strong>${fmt(pv.exclusive)}</strong> SKUs
+    (${pct1(pv.exclusive, pv.total)}) are exclusive to Pet Valu.</p>`;
+  if (bestQ) {
+    html += `<p style="font-size:.95rem">
+      The largest single source of overlap is <strong>${provLabel(bestQ)}</strong>, which carries
+      <strong>${fmt(bestN)}</strong> of Pet Valu’s SKUs (${pct1(bestN, pv.total)} of the catalog).
+      <strong>${fmt(nAll)}</strong> is the universal exact-match GTIN count carried by
+      <em>all</em> ${providers.length} selected retailers — the same number in every retailer column,
+      matching the Excel “shared by all” row.</p>`;
+  }
   if (pvB) {
     html += `<p style="font-size:.95rem">
       Brand overlap is much broader than SKU overlap: <strong>${fmt(brandShared)}</strong> of Pet Valu’s
-      <strong>${fmt(pvB.total)}</strong> brands (${pct1(brandShared, pvB.total)}) also appear at a competitor,
-      and ${fmt(pvB.n3)} brands are carried by all four retailers — competitors stock the same brands
-      but often a different mix of items within them.</p>`;
+      <strong>${fmt(pvB.total)}</strong> brands (${pct1(brandShared, pvB.total)}) also appear at a competitor.</p>`;
   }
   el.innerHTML = html;
+}
+
+function brandCatalogForView() {
+  const all = U().brand_catalog_all || META.brand_catalog_all;
+  const selected = activeRetailers();
+  if (!all) return U().brand_catalog || META.brand_catalog || {};
+  const out = {};
+  selected.forEach(p => { if (all[p]) out[p] = all[p]; });
+  return out;
 }
 
 function renderKpis(e) {
   const el = document.getElementById("m-kpis");
   if (!e) { el.innerHTML = ""; return; }
   const pv = e.petvalu;
+  if (!pv) { el.innerHTML = "<p class='muted'>Select Pet Valu to see KPIs.</p>"; return; }
   let bestQ = null, bestN = -1;
   for (const q in pv.pairs) if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
+  const nAll = pv.n_all ?? pv.n3 ?? 0;
   el.innerHTML = `
     <div class="kpi"><div class="val">${fmt(pv.shared)} <small>(${pct(pv.shared,pv.total)})</small></div>
-      <div class="lbl">Pet Valu SKUs shared with any competitor</div></div>
+      <div class="lbl">Pet Valu SKUs shared with any selected retailer</div></div>
     <div class="kpi"><div class="val">${fmt(pv.exclusive)} <small>(${pct(pv.exclusive,pv.total)})</small></div>
-      <div class="lbl">Pet Valu SKUs exclusive at this strictness</div></div>
-    <div class="kpi"><div class="val">${fmt(pv.n3)}</div>
-      <div class="lbl">Pet Valu SKUs carried by all 4 retailers</div></div>
-    <div class="kpi"><div class="val">${provLabel(bestQ)}</div>
+      <div class="lbl">Pet Valu SKUs exclusive</div></div>
+    <div class="kpi"><div class="val">${fmt(nAll)}</div>
+      <div class="lbl">Universal primary GTINs (all selected retailers)</div></div>
+    <div class="kpi"><div class="val">${bestQ ? provLabel(bestQ) : "—"}</div>
       <div class="lbl">Largest overlap partner (${fmt(bestN)} shared SKUs)</div></div>`;
 }
 
@@ -740,45 +888,76 @@ function deckTable(rows, colProviders) {
 function renderSkuDeck(e) {
   const tbl = document.getElementById("sku-deck");
   if (!e) { tbl.innerHTML = ""; return; }
-  const v = k => Object.fromEntries(PROVIDERS.map(p => [p, e[p][k]]));
-  const sharedVals = Object.fromEntries(PROVIDERS.map(p => [p, e[p].shared]));
-  tbl.innerHTML = deckTable([
+  const providers = activeRetailers();
+  const v = k => Object.fromEntries(providers.map(p => [p, e[p]?.[k] ?? 0]));
+  const sharedVals = Object.fromEntries(providers.map(p => [p, e[p]?.shared ?? 0]));
+  const rows = [
     { label: "Total SKUs", cls: "total", isTotal: true, values: v("total") },
     { label: "Exclusive SKUs", cls: "section", values: v("exclusive") },
     { label: "Shared SKUs", cls: "section", values: sharedVals },
-    { label: "…with 1 other retailer", cls: "indent", values: v("n1") },
-    { label: "…with 2 other retailers", cls: "indent", values: v("n2") },
-    { label: "…by all 4 retailers", cls: "indent", values: v("n3") },
-  ], PROVIDERS);
+  ];
+  const n = providers.length;
+  for (let i = 0; i < Math.max(0, n - 2); i++) {
+    rows.push({
+      label: `…with ${i + 1} other retailer${i ? "s" : ""}`,
+      cls: "indent",
+      values: Object.fromEntries(providers.map(p => [p, e[p]?.n_buckets?.[i] ?? 0])),
+    });
+  }
+  if (n >= 2) {
+    rows.push({
+      label: `…by all ${n} retailers (universal primary GTIN)`,
+      cls: "indent",
+      values: Object.fromEntries(providers.map(p => [p, e[p]?.n_all ?? 0])),
+    });
+  }
+  tbl.innerHTML = deckTable(rows, providers);
 }
 
 function renderBrandDeck() {
-  const bc = U().brand_catalog || META.brand_catalog;
+  const bc = brandCatalogForView();
   const tbl = document.getElementById("brand-deck");
-  if (!bc) { tbl.innerHTML = ""; return; }
-  const v = k => Object.fromEntries(PROVIDERS.map(p => [p, bc[p][k]]));
-  const shared = Object.fromEntries(PROVIDERS.map(p => [p, bc[p].total - bc[p].n0]));
-  tbl.innerHTML = deckTable([
+  const providers = activeRetailers();
+  if (!bc || !providers.length) { tbl.innerHTML = ""; return; }
+  const v = k => Object.fromEntries(providers.map(p => [p, bc[p]?.[k] ?? 0]));
+  const shared = Object.fromEntries(providers.map(p => [p, (bc[p]?.total ?? 0) - (bc[p]?.n0 ?? 0)]));
+  const rows = [
     { label: "Total brands", cls: "total", isTotal: true, values: v("total") },
     { label: "Exclusive brands", cls: "section", values: v("n0") },
     { label: "Shared brands", cls: "section", values: shared },
-    { label: "…with 1 other retailer", cls: "indent", values: v("n1") },
-    { label: "…with 2 other retailers", cls: "indent", values: v("n2") },
-    { label: "…by all 4 retailers", cls: "indent", values: v("n3") },
-  ], PROVIDERS);
+  ];
+  const n = providers.length;
+  for (let i = 0; i < Math.max(0, n - 2); i++) {
+    rows.push({
+      label: `…with ${i + 1} other retailer${i ? "s" : ""}`,
+      cls: "indent",
+      values: Object.fromEntries(providers.map(p => [p, bc[p]?.n_buckets?.[i] ?? bc[p]?.[`n${i+1}`] ?? 0])),
+    });
+  }
+  if (n >= 2) {
+    rows.push({
+      label: `…by all ${n} retailers`,
+      cls: "indent",
+      values: Object.fromEntries(providers.map(p => [p, bc[p]?.n_all ?? bc[p]?.[`n${n-1}`] ?? 0])),
+    });
+  }
+  tbl.innerHTML = deckTable(rows, providers);
 }
 
 function renderStacks(e) {
   const el = document.getElementById("stack-bars");
   if (!e) { el.innerHTML = ""; return; }
-  el.innerHTML = PROVIDERS.map(p => {
+  const providers = activeRetailers();
+  el.innerHTML = providers.map(p => {
     const d = e[p];
+    if (!d) return "";
     const segs = [
       ["excl", d.exclusive, "Exclusive"],
-      ["s1", d.n1, "1 other"],
-      ["s2", d.n2, "2 others"],
-      ["s3", d.n3, "All 4"],
     ];
+    (d.n_buckets || []).forEach((n, i) => {
+      segs.push([`s${i+1}`, n, `${i + 1} other${i ? "s" : ""}`]);
+    });
+    segs.push(["s3", d.n_all ?? d.n3 ?? 0, `All ${providers.length}`]);
     const inner = segs.map(([cls, n, lbl]) => {
       const w = d.total ? 100*n/d.total : 0;
       const txt = w > 7 ? `${fmt(n)} (${pct(n, d.total)})` : (w > 3.5 ? pct(n, d.total) : "");
@@ -790,20 +969,31 @@ function renderStacks(e) {
       <div class="stack-total">${fmt(d.total)} SKUs</div>
     </div>`;
   }).join("");
+  const legend = document.querySelector(".stack-legend");
+  if (legend) {
+    const n = providers.length;
+    legend.innerHTML = `
+      <span><span class="swatch" style="background:var(--seg-excl)"></span>Exclusive</span>
+      ${Array.from({length: Math.max(0, n-2)}, (_, i) =>
+        `<span><span class="swatch" style="background:var(--seg-${Math.min(i+1,3)})"></span>Shared with ${i+1} other${i ? "s" : ""}</span>`
+      ).join("")}
+      <span><span class="swatch" style="background:var(--seg-3)"></span>Universal GTIN (all ${n})</span>`;
+  }
 }
 
 function renderHeat(e) {
   const tbl = document.getElementById("heat-table");
   if (!e) { tbl.innerHTML = ""; return; }
+  const providers = activeRetailers();
   let html = `<thead><tr><th>SKUs of ↓ also at →</th>`;
-  PROVIDERS.forEach(p => html += `<th>${provLabel(p)}</th>`);
+  providers.forEach(p => html += `<th>${provLabel(p)}</th>`);
   html += `</tr></thead><tbody>`;
-  PROVIDERS.forEach(p => {
+  providers.forEach(p => {
     html += `<tr><th>${provLabel(p)}</th>`;
-    PROVIDERS.forEach(q => {
+    providers.forEach(q => {
       if (p === q) { html += `<td class="diag">—</td>`; return; }
-      const n = e[p].pairs[q].total;
-      const share = e[p].total ? n / e[p].total : 0;
+      const n = e[p]?.pairs?.[q]?.total ?? 0;
+      const share = e[p]?.total ? n / e[p].total : 0;
       const alpha = Math.min(0.92, share * 2.2 + 0.04);
       const fg = alpha > 0.55 ? "#fff" : "var(--text)";
       html += `<td style="background:rgba(22,63,97,${alpha.toFixed(2)});color:${fg}">
@@ -816,13 +1006,80 @@ function renderHeat(e) {
 }
 
 function renderMetrics() {
-  const e = strictnessEntry();
+  const e = overlapForView();
   renderExecSummary(e);
   renderKpis(e);
   renderSkuDeck(e);
   renderStacks(e);
   renderHeat(e);
   renderBrandDeck();
+  updateRetailerNote();
+}
+
+function renderRetailerBar() {
+  const presets = META.retailer_presets || { old4: CLUSTER_PROVIDERS, new6: allRetailers() };
+  const presetEl = document.getElementById("retailer-presets");
+  presetEl.innerHTML = Object.keys(presets).map(key => {
+    const label = key === "old4" ? "Old 4 (Excel tab)" : key === "new6" ? "New 6 (Excel tab)" : key;
+    return `<button type="button" data-preset="${key}" class="${state.activePreset === key ? "active" : ""}">${label}</button>`;
+  }).join("");
+  presetEl.querySelectorAll("button").forEach(btn => {
+    btn.onclick = () => {
+      state.activePreset = btn.dataset.preset;
+      state.selectedRetailers = [...(presets[btn.dataset.preset] || [])];
+      presetEl.querySelectorAll("button").forEach(b => b.classList.toggle("active", b === btn));
+      renderRetailerChecks();
+      renderMetrics();
+    };
+  });
+  renderRetailerChecks();
+}
+
+function renderRetailerChecks() {
+  const el = document.getElementById("retailer-checks");
+  const retailers = allRetailers();
+  el.innerHTML = retailers.map(r => {
+    const checked = state.selectedRetailers.includes(r);
+    return `<label><input type="checkbox" data-retailer="${r}" ${checked ? "checked" : ""}>
+      <span class="prov-tag ${PROV_CLS[r] || ""}">${provLabel(r)}</span></label>`;
+  }).join("");
+  el.querySelectorAll("input").forEach(inp => {
+    inp.onchange = () => {
+      const r = inp.dataset.retailer;
+      if (inp.checked) {
+        if (!state.selectedRetailers.includes(r)) state.selectedRetailers.push(r);
+      } else {
+        state.selectedRetailers = state.selectedRetailers.filter(x => x !== r);
+      }
+      if (state.selectedRetailers.length < 2) {
+        inp.checked = true;
+        if (!state.selectedRetailers.includes(r)) state.selectedRetailers.push(r);
+        return;
+      }
+      state.activePreset = "";
+      document.querySelectorAll("#retailer-presets button").forEach(b => b.classList.remove("active"));
+      renderMetrics();
+    };
+  });
+}
+
+function updateRetailerNote() {
+  const el = document.getElementById("retailer-note");
+  const { universal, retailers } = computeExactOverlap(activeRetailers());
+  const preset = META.exact_gtin?.preset_overlap;
+  const old4u = preset?.old4?.universal_gtins;
+  const new6u = preset?.new6?.universal_gtins;
+  let txt = `Universal primary GTINs across ${retailers.length} selected retailers: ${fmt(universal)}.`;
+  if (retailers.join(",") === (META.retailer_presets?.old4 || []).join(",") && old4u != null) {
+    txt += ` Excel A_OverlapSummary_Old4 expects ${fmt(old4u)}.`;
+  }
+  if (retailers.join(",") === (META.retailer_presets?.new6 || []).join(",") && new6u != null) {
+    txt += ` Excel A_OverlapSummary_New6 expects ${fmt(new6u)}.`;
+  }
+  if (state.maxStrictness !== "L0") {
+    txt += " L1–L3 metrics use semantic clusters for Pet Valu, PetSmart, Chewy, and Amazon only.";
+  }
+  el.textContent = txt;
 }
 
 /* ---------------- Levels Guide page ---------------- */
@@ -1073,6 +1330,10 @@ async function init() {
     toggle.checked = state.universe === "catdog";
     toggle.onchange = onUniverseChange;
 
+    state.selectedRetailers = META.default_retailers || META.retailer_presets?.old4 || CLUSTER_PROVIDERS.slice();
+    state.activePreset = "old4";
+
+    renderRetailerBar();
     renderUniverseBadge();
     renderUniverseCounts();
 
