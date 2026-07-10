@@ -287,22 +287,11 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 <main>
   <div id="load-err" class="error-box" style="display:none"></div>
-  <div id="server-hint" class="hint-box" style="display:none">
-    This dashboard loads data files from the <code>dashboard/</code> folder.
-    Run <code>python build_match_dashboard.py</code>, then start a local server:
-    <code>python -m http.server 8080 --directory __perSku/match_levels/dashboard</code>
-    and open <code>http://localhost:8080/</code>.
-  </div>
 
   <div class="retailer-bar" id="retailer-bar">
     <h2>Retailers in view</h2>
-    <p class="muted" style="margin:0 0 .2rem;font-size:.88rem">
-      SKU overlap uses one primary GTIN per listing — same methodology as
-      <code>A_OverlapSummary_Old4</code> / <code>A_OverlapSummary_New6</code> in the Excel workbook.
-    </p>
     <div class="retailer-presets" id="retailer-presets"></div>
     <div class="retailer-checks" id="retailer-checks"></div>
-    <p class="retailer-note" id="retailer-note"></p>
   </div>
 
   <div class="universe-bar" id="universe-bar">
@@ -310,10 +299,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <input type="checkbox" id="catdog-toggle" checked>
       <span>
         <strong>Cat &amp; dog products only</strong>
-        <span class="universe-badge" id="universe-badge">Cat/dog universe</span>
-        — same product universe as the original deck analysis
-        (cat and dog food, treats, and supplies from each retailer’s catalog).
-        Turn off to include all scraped SKUs (small animal, fish, bird, general merchandise, etc.).
+        <span class="universe-badge" id="universe-badge">Cat/dog</span>
       </span>
     </label>
     <div class="universe-counts" id="universe-counts"></div>
@@ -340,9 +326,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="card">
       <h2>SKU overlap by retailer</h2>
       <p class="sub">
-        For each retailer: exclusive vs. shared SKUs by exact primary GTIN at the selected retailers
-        (matches Excel <code>A_OverlapSummary</code> methodology). Use L0 strictness for identical
-        barcode; L1–L3 broaden semantic matching in the cluster explorer.
+        Exclusive vs. shared SKUs across the selected retailers, matched on exact barcode.
       </p>
       <div style="overflow:auto"><table class="deck" id="sku-deck"></table></div>
     </div>
@@ -350,8 +334,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="card">
       <h2>Assortment decomposition</h2>
       <p class="sub">
-        Each bar decomposes a retailer’s full catalog into exclusive SKUs and SKUs
-        shared with 1, 2, or all 3 other retailers, at the selected strictness.
+        How each retailer’s catalog breaks down between exclusive and shared SKUs.
       </p>
       <div class="stack-rows" id="stack-bars"></div>
       <div class="stack-legend">
@@ -366,17 +349,14 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <div class="card">
         <h2>Pairwise overlap matrix</h2>
         <p class="sub">
-          Each cell reads: “this share of the <strong>row</strong> retailer’s SKUs is
-          also carried by the <strong>column</strong> retailer” at the selected strictness.
+          Share of each row retailer’s SKUs also listed by the column retailer.
         </p>
         <div style="overflow:auto"><table class="heat" id="heat-table"></table></div>
       </div>
       <div class="card">
         <h2>Brand overlap by retailer</h2>
         <p class="sub">
-          Brand-name presence across retailer catalogs (independent of match level).
-          A brand is shared when the same normalized brand name appears in another
-          retailer’s catalog. Amazon uses enriched brand names (~28k ASINs).
+          Brands appearing in more than one selected retailer’s catalog.
         </p>
         <div style="overflow:auto"><table class="deck" id="brand-deck"></table></div>
       </div>
@@ -410,9 +390,9 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
           at L0, L1, or L2 — you cannot mix arbitrary combinations.
         </p>
         <ul style="margin:0 0 .65rem; padding-left:1.2rem; font-size:.88rem; color:var(--muted)">
-          <li>Each SKU pair has one <strong>strictest (best) match level</strong> in the backend.</li>
-          <li>The dashboard shows all pairs whose best level is <em>at or below</em> your selected maximum.</li>
-          <li>Stricter = higher confidence the products are the same item; broader = more assortment overlap.</li>
+          <li>Broader levels automatically include every stricter match.</li>
+          <li>Stricter levels mean higher confidence the products are the same item.</li>
+          <li>Broader levels capture more assortment overlap across retailers.</li>
         </ul>
       </div>
       <h2 style="font-size:1rem; margin-top:1.1rem">What each level requires to match</h2>
@@ -677,7 +657,7 @@ function renderUniverseBadge() {
   const el = document.getElementById("universe-badge");
   if (!el) return;
   const catdog = state.universe === "catdog";
-  el.textContent = catdog ? "Cat/dog universe" : "All SKUs";
+  el.textContent = catdog ? "Cat/dog" : "All products";
   el.className = "universe-badge" + (catdog ? "" : " all");
 }
 
@@ -685,7 +665,7 @@ function renderUniverseCounts() {
   const el = document.getElementById("universe-counts");
   if (!el || !META) return;
   const p = catalogTotals();
-  const parts = PROVIDERS.map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
+  const parts = allRetailers().map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
   el.innerHTML = `<strong>${state.universe === "catdog" ? "Cat/dog SKUs" : "All SKUs"}</strong><br>${parts.join(" · ")}`;
 }
 
@@ -721,10 +701,10 @@ function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""
 
 async function loadMeta() {
   const r = await fetch("meta.json?_=" + Date.now());
-  if (!r.ok) throw new Error("Could not load meta.json — run build_match_dashboard.py");
+  if (!r.ok) throw new Error("Could not load dashboard data.");
   META = await r.json();
   if (!META.universes || !META.universes.all || !META.universes.catdog) {
-    throw new Error("meta.json is missing universes — re-run build_match_dashboard.py and hard-refresh (Ctrl+F5)");
+    throw new Error("Dashboard data is incomplete. Please refresh the page.");
   }
 }
 async function loadClusters(level) {
@@ -811,23 +791,21 @@ function renderExecSummary(e) {
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
   const nAll = pv.n_all ?? pv.n3 ?? 0;
   const method = state.maxStrictness === "L0"
-    ? "exact primary GTIN (one barcode per SKU)"
-    : `${maxL} semantic match strictness`;
+    ? "exact barcode match"
+    : `match level ${maxL}`;
 
   let html = `<p style="font-size:.95rem">
-    With <strong>${providers.length}</strong> retailers selected and overlap at
-    <strong>${method}</strong>,
+    Across <strong>${providers.length}</strong> selected retailers at <strong>${method}</strong>,
     <strong>${fmt(pv.shared)}</strong> of Pet Valu’s <strong>${fmt(pv.total)}</strong> SKUs
-    (<strong>${pct1(pv.shared, pv.total)}</strong>) share a qualifying barcode with at least one other
-    selected retailer. The remaining <strong>${fmt(pv.exclusive)}</strong> SKUs
+    (<strong>${pct1(pv.shared, pv.total)}</strong>) also appear at another selected retailer.
+    <strong>${fmt(pv.exclusive)}</strong> SKUs
     (${pct1(pv.exclusive, pv.total)}) are exclusive to Pet Valu.</p>`;
   if (bestQ) {
     html += `<p style="font-size:.95rem">
-      The largest single source of overlap is <strong>${provLabel(bestQ)}</strong>, which carries
-      <strong>${fmt(bestN)}</strong> of Pet Valu’s SKUs (${pct1(bestN, pv.total)} of the catalog).
-      <strong>${fmt(nAll)}</strong> is the universal exact-match GTIN count carried by
-      <em>all</em> ${providers.length} selected retailers — the same number in every retailer column,
-      matching the Excel “shared by all” row.</p>`;
+      <strong>${provLabel(bestQ)}</strong> has the largest overlap with Pet Valu
+      (<strong>${fmt(bestN)}</strong> SKUs, ${pct1(bestN, pv.total)}).
+      <strong>${fmt(nAll)}</strong> products share the same barcode at all
+      ${providers.length} selected retailers.</p>`;
   }
   if (pvB) {
     html += `<p style="font-size:.95rem">
@@ -860,7 +838,7 @@ function renderKpis(e) {
     <div class="kpi"><div class="val">${fmt(pv.exclusive)} <small>(${pct(pv.exclusive,pv.total)})</small></div>
       <div class="lbl">Pet Valu SKUs exclusive</div></div>
     <div class="kpi"><div class="val">${fmt(nAll)}</div>
-      <div class="lbl">Universal primary GTINs (all selected retailers)</div></div>
+      <div class="lbl">SKUs at all selected retailers</div></div>
     <div class="kpi"><div class="val">${bestQ ? provLabel(bestQ) : "—"}</div>
       <div class="lbl">Largest overlap partner (${fmt(bestN)} shared SKUs)</div></div>`;
 }
@@ -906,7 +884,7 @@ function renderSkuDeck(e) {
   }
   if (n >= 2) {
     rows.push({
-      label: `…by all ${n} retailers (universal primary GTIN)`,
+      label: `…by all ${n} retailers`,
       cls: "indent",
       values: Object.fromEntries(providers.map(p => [p, e[p]?.n_all ?? 0])),
     });
@@ -977,7 +955,7 @@ function renderStacks(e) {
       ${Array.from({length: Math.max(0, n-2)}, (_, i) =>
         `<span><span class="swatch" style="background:var(--seg-${Math.min(i+1,3)})"></span>Shared with ${i+1} other${i ? "s" : ""}</span>`
       ).join("")}
-      <span><span class="swatch" style="background:var(--seg-3)"></span>Universal GTIN (all ${n})</span>`;
+      <span><span class="swatch" style="background:var(--seg-3)"></span>All ${n} retailers</span>`;
   }
 }
 
@@ -1013,14 +991,13 @@ function renderMetrics() {
   renderStacks(e);
   renderHeat(e);
   renderBrandDeck();
-  updateRetailerNote();
 }
 
 function renderRetailerBar() {
   const presets = META.retailer_presets || { old4: CLUSTER_PROVIDERS, new6: allRetailers() };
   const presetEl = document.getElementById("retailer-presets");
   presetEl.innerHTML = Object.keys(presets).map(key => {
-    const label = key === "old4" ? "Old 4 (Excel tab)" : key === "new6" ? "New 6 (Excel tab)" : key;
+    const label = key === "old4" ? "4 retailers" : key === "new6" ? "6 retailers" : key;
     return `<button type="button" data-preset="${key}" class="${state.activePreset === key ? "active" : ""}">${label}</button>`;
   }).join("");
   presetEl.querySelectorAll("button").forEach(btn => {
@@ -1063,39 +1040,15 @@ function renderRetailerChecks() {
   });
 }
 
-function updateRetailerNote() {
-  const el = document.getElementById("retailer-note");
-  const { universal, retailers } = computeExactOverlap(activeRetailers());
-  const preset = META.exact_gtin?.preset_overlap;
-  const old4u = preset?.old4?.universal_gtins;
-  const new6u = preset?.new6?.universal_gtins;
-  let txt = `Universal primary GTINs across ${retailers.length} selected retailers: ${fmt(universal)}.`;
-  if (retailers.join(",") === (META.retailer_presets?.old4 || []).join(",") && old4u != null) {
-    txt += ` Excel A_OverlapSummary_Old4 expects ${fmt(old4u)}.`;
-  }
-  if (retailers.join(",") === (META.retailer_presets?.new6 || []).join(",") && new6u != null) {
-    txt += ` Excel A_OverlapSummary_New6 expects ${fmt(new6u)}.`;
-  }
-  if (state.maxStrictness !== "L0") {
-    txt += " L1–L3 metrics use semantic clusters for Pet Valu, PetSmart, Chewy, and Amazon only.";
-  }
-  el.textContent = txt;
-}
-
 /* ---------------- Levels Guide page ---------------- */
-function imgSlot(file, caption, search) {
+function imgSlot(file, caption) {
   const gi = (META.guide_images || {})[file];
   const credit = gi && gi.status === "ok"
     ? `<div class="img-credit">Photo: ${provLabel(gi.retailer) || gi.retailer}</div>` : "";
   return `<figure class="imgslot">
     <img src="img/${file}" alt="${esc(caption)}" loading="lazy"
          onerror="this.parentElement.classList.add('missing')">
-    <div class="img-ph">
-      <div><strong>Image pending</strong></div>
-      <div class="ph-file">img/${file}</div>
-      <div>Run <code>build_match_dashboard.py</code> to fetch from scraped URLs.</div>
-      <div>Search: “${esc(search)}”</div>
-    </div>
+    <div class="img-ph"><div>${esc(caption)}</div></div>
     <figcaption>${esc(caption)}${credit}</figcaption>
   </figure>`;
 }
@@ -1319,7 +1272,6 @@ async function init() {
   initNav();
   try {
     await loadMeta();
-    document.getElementById("server-hint").style.display = "none";
     document.getElementById("hdr-title").textContent = META.title;
     document.getElementById("hdr-sub").textContent =
       META.subtitle + (META.generated_at ? " · Updated " + META.generated_at : "");
@@ -1376,7 +1328,6 @@ async function init() {
   } catch (e) {
     document.getElementById("load-err").style.display = "block";
     document.getElementById("load-err").textContent = e.message;
-    document.getElementById("server-hint").style.display = "block";
   }
 }
 init();
