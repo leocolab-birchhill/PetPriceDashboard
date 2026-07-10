@@ -665,7 +665,7 @@ function renderUniverseCounts() {
   const el = document.getElementById("universe-counts");
   if (!el || !META) return;
   const p = catalogTotals();
-  const parts = allRetailers().map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
+  const parts = activeRetailers().map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
   el.innerHTML = `<strong>${state.universe === "catdog" ? "Cat/dog SKUs" : "All SKUs"}</strong><br>${parts.join(" · ")}`;
 }
 
@@ -716,10 +716,13 @@ async function loadClusters(level) {
   return d.clusters;
 }
 
-function viewRetailers() {
-  const selected = activeRetailers();
-  if (state.maxStrictness === "L0") return selected;
-  return selected.filter(r => CLUSTER_PROVIDERS.includes(r));
+function filterPairs(pairs, retailers) {
+  const set = new Set(retailers);
+  const out = {};
+  Object.keys(pairs || {}).forEach(q => {
+    if (set.has(q)) out[q] = pairs[q];
+  });
+  return out;
 }
 
 function normalizeClusterOverlap(raw, retailers) {
@@ -739,7 +742,7 @@ function normalizeClusterOverlap(raw, retailers) {
       n1: d.n1 ?? 0,
       n2: d.n2 ?? 0,
       n3: d.n3 ?? 0,
-      pairs: d.pairs || {},
+      pairs: filterPairs(d.pairs, retailers),
     };
   });
   return out;
@@ -747,15 +750,35 @@ function normalizeClusterOverlap(raw, retailers) {
 
 function strictnessEntry() {
   const selected = activeRetailers();
+  if (selected.length < 2) return {};
+
+  const exact = computeExactOverlap(selected).overlap;
+
   if (state.maxStrictness === "L0") {
-    return computeExactOverlap(selected).overlap;
+    return exact;
   }
+
   const subs = U().overlap_by_strictness || META.overlap_by_strictness || {};
-  const raw = subs[state.maxStrictness] || null;
-  if (!raw) return null;
-  const retailers = selected.filter(r => CLUSTER_PROVIDERS.includes(r));
-  if (!retailers.length) return computeExactOverlap(selected).overlap;
-  return normalizeClusterOverlap(raw, retailers);
+  const raw = subs[state.maxStrictness];
+  const clusterSel = selected.filter(r => CLUSTER_PROVIDERS.includes(r));
+  const semantic = raw && clusterSel.length
+    ? normalizeClusterOverlap(raw, clusterSel) : {};
+  const hasNonCluster = selected.some(r => !CLUSTER_PROVIDERS.includes(r));
+  const out = {};
+
+  selected.forEach(r => {
+    if (CLUSTER_PROVIDERS.includes(r) && semantic[r]) {
+      out[r] = { ...semantic[r] };
+      if (hasNonCluster && exact[r]) {
+        out[r].n_buckets = exact[r].n_buckets;
+        out[r].n_all = exact[r].n_all;
+        out[r].pairs = filterPairs(exact[r].pairs, selected);
+      }
+    } else if (exact[r]) {
+      out[r] = { ...exact[r] };
+    }
+  });
+  return out;
 }
 
 function overlapForView() {
@@ -805,7 +828,7 @@ function renderExecSummary(e) {
   const el = document.getElementById("exec-text");
   if (!e) { el.innerHTML = "<p class='muted'>Match data unavailable.</p>"; return; }
   const maxL = state.maxStrictness;
-  const providers = viewRetailers();
+  const providers = activeRetailers();
   const pv = e.petvalu;
   if (!pv) { el.innerHTML = "<p class='muted'>Pet Valu not in selected retailers.</p>"; return; }
   let bestQ = null, bestN = -1;
@@ -841,13 +864,42 @@ function renderExecSummary(e) {
   el.innerHTML = html;
 }
 
-function brandCatalogForView() {
-  const all = U().brand_catalog_all || META.brand_catalog_all;
-  const selected = activeRetailers();
-  if (!all) return U().brand_catalog || META.brand_catalog || {};
+function computeBrandOverlap(selected) {
+  const raw = U().brand_sets || META.brand_sets || {};
+  const retailers = selected.filter(r => Array.isArray(raw[r]));
+  const n = retailers.length;
+  if (!n) return {};
+  const sets = Object.fromEntries(retailers.map(r => [r, new Set(raw[r])]));
   const out = {};
-  selected.forEach(p => { if (all[p]) out[p] = all[p]; });
+  retailers.forEach(p => {
+    const nBuckets = [];
+    for (let k = 2; k < n; k++) {
+      nBuckets.push([...sets[p]].filter(b => {
+        const others = retailers.filter(q => q !== p).filter(q => sets[q].has(b)).length;
+        return others === k - 1;
+      }).length);
+    }
+    const nAll = n > 1
+      ? [...sets[p]].filter(b => retailers.filter(q => q !== p).every(q => sets[q].has(b))).length
+      : 0;
+    const exclusive = [...sets[p]].filter(b =>
+      !retailers.some(q => q !== p && sets[q].has(b))
+    ).length;
+    out[p] = {
+      total: sets[p].size,
+      n0: exclusive,
+      n_buckets: nBuckets,
+      n_all: nAll,
+      n1: nBuckets[0] || 0,
+      n2: nBuckets[1] || 0,
+      n3: nBuckets[2] || 0,
+    };
+  });
   return out;
+}
+
+function brandCatalogForView() {
+  return computeBrandOverlap(activeRetailers());
 }
 
 function renderKpis(e) {
@@ -892,7 +944,7 @@ function deckTable(rows, colProviders) {
 function renderSkuDeck(e) {
   const tbl = document.getElementById("sku-deck");
   if (!e) { tbl.innerHTML = ""; return; }
-  const providers = viewRetailers();
+  const providers = activeRetailers();
   const v = k => Object.fromEntries(providers.map(p => [p, e[p]?.[k] ?? 0]));
   const sharedVals = Object.fromEntries(providers.map(p => [p, e[p]?.shared ?? 0]));
   const rows = [
@@ -951,7 +1003,7 @@ function renderBrandDeck() {
 function renderStacks(e) {
   const el = document.getElementById("stack-bars");
   if (!e) { el.innerHTML = ""; return; }
-  const providers = viewRetailers();
+  const providers = activeRetailers();
   el.innerHTML = providers.map(p => {
     const d = e[p];
     if (!d) return "";
@@ -988,7 +1040,7 @@ function renderStacks(e) {
 function renderHeat(e) {
   const tbl = document.getElementById("heat-table");
   if (!e) { tbl.innerHTML = ""; return; }
-  const providers = viewRetailers();
+  const providers = activeRetailers();
   let html = `<thead><tr><th>SKUs of ↓ also at →</th>`;
   providers.forEach(p => html += `<th>${provLabel(p)}</th>`);
   html += `</tr></thead><tbody>`;
