@@ -728,6 +728,12 @@ function provLabel(p) {
 }
 function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
 function businessText(s){ return String(s || "").replace(/\bL([0-3])\b/g, "Level $1"); }
+function levelIncludesSummary(l) {
+  const idx = LEVELS.indexOf(l);
+  const included = (idx >= 0 ? LEVELS.slice(0, idx + 1) : [l])
+    .map(level => `${levelLabel(level)}: ${LEVEL_SHORT[level] || ""}`);
+  return `includes ${included.join("; ")}`;
+}
 
 async function loadMeta() {
   const r = await fetch("meta.json?_=" + Date.now());
@@ -871,9 +877,7 @@ function renderExecSummary(e) {
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
   const nAll = universalPvSkuCount(e);
-  const method = state.maxStrictness === "L0"
-    ? "exact barcode match"
-    : `match ${levelLabel(maxL)}`;
+  const method = `match ${levelLabel(maxL)} (${levelIncludesSummary(maxL)})`;
 
   let html = `<p style="font-size:.95rem">
     Across <strong>${providers.length}</strong> selected retailers at <strong>${method}</strong>,
