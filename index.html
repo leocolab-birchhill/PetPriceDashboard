@@ -15,12 +15,9 @@
   --accent-dark: #163f61;
   --accent-light: #e8f2fa;
   --pv: #2d7a4f;
-  --ps: #c0504d;
-  --ch: #9dc3d5;
-  --am: #b7bec7;
-  --am1p: #ffc000;
-  --wm: #d9b2e8;
-  --lob: #fff;
+  --ps: #2563eb;
+  --ch: #d97706;
+  --am: #7c3aed;
   --seg-excl: #d4dbe4;
   --seg-1: #8db8dd;
   --seg-2: #3f7fb5;
@@ -141,11 +138,11 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 .prov-tag { display: inline-block; padding: .14rem .45rem; border-radius: 4px; font-size: .72rem; font-weight: 600; color: #fff; margin-right: .2rem; }
 .prov-petvalu { background: var(--pv); }
 .prov-petsmart { background: var(--ps); }
-.prov-chewy { background: var(--ch); color: #111; }
-.prov-amazon { background: var(--am); color: #4a5563; }
-.prov-amazon_1p { background: var(--am1p); color: #111; }
-.prov-walmart { background: var(--wm); color: #111; }
-.prov-loblaws { background: #4a5563; color: #fff; border: 1px solid #2d3748; }
+.prov-chewy { background: var(--ch); }
+.prov-amazon { background: var(--am); }
+.prov-amazon_1p { background: #e47911; }
+.prov-walmart { background: #0071ce; }
+.prov-loblaws { background: #da291c; }
 
 .retailer-bar {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -159,12 +156,7 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 }
 .retailer-presets button.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
 .retailer-checks { display: flex; flex-wrap: wrap; gap: .65rem 1.1rem; font-size: .88rem; }
-.retailer-checks label {
-  display: flex; align-items: center; gap: .35rem; cursor: pointer;
-  padding: .25rem .45rem; border-radius: 999px; border: 1px solid transparent;
-}
-.retailer-checks label.amazon-all { opacity: .72; order: 99; }
-.retailer-checks label:hover { background: #f8fafc; border-color: var(--border); }
+.retailer-checks label { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
 .retailer-note { margin: .55rem 0 0; font-size: .82rem; color: var(--muted); }
 
 /* ---- guide ---- */
@@ -286,9 +278,10 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   <h1 id="hdr-title">SKU &amp; Brand Overlap Explorer</h1>
   <p id="hdr-sub">Loading …</p>
   <nav class="tabs" id="nav">
-    <button data-page="metrics" class="active">Business Summary</button>
-    <button data-page="guide">Match Guide</button>
+    <button data-page="metrics" class="active">Key Metrics</button>
+    <button data-page="guide">Levels Guide</button>
     <button data-page="brands">Brands</button>
+    <button data-page="explorer">Cluster Explorer</button>
   </nav>
 </header>
 
@@ -297,7 +290,6 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 
   <div class="retailer-bar" id="retailer-bar">
     <h2>Retailers in view</h2>
-    <p class="retailer-note">Pick the retailers you want to compare. Amazon.ca is greyed out because it represents the broader Amazon marketplace, but it is still selectable.</p>
     <div class="retailer-presets" id="retailer-presets"></div>
     <div class="retailer-checks" id="retailer-checks"></div>
   </div>
@@ -318,14 +310,14 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <div class="card strictness-card">
       <h2>Match strictness</h2>
       <p class="sub">
-        Choose the maximum match confidence level for business reporting. Broader levels include all stricter matches, so you can move from exact price checks to broader assortment comparisons.
+        Choose how broadly to define a match. Broader levels include all stricter matches.
       </p>
       <div class="strictness-row" id="strictness-control"></div>
       <div class="strictness-example" id="strictness-example"></div>
     </div>
 
     <div class="card">
-      <h2>What this means</h2>
+      <h2>Executive summary</h2>
       <div id="exec-text"></div>
     </div>
 
@@ -380,10 +372,10 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
         using four match strictness levels, ordered from strictest to broadest.
       </p>
       <p style="font-size:.92rem; margin:.3rem 0 .2rem">
-        <strong>Level 0</strong> requires an identical barcode.
-        <strong>Level 1</strong> matches the same brand, product line, and flavor at any pack size.
-        <strong>Level 2</strong> relaxes flavor and size — same product line, any variant or pack size.
-        <strong>Level 3</strong> compares at the brand-and-format level when product lines differ.
+        <strong>L0</strong> requires an identical barcode.
+        <strong>L1</strong> matches the same brand, product line, and flavor at any pack size.
+        <strong>L2</strong> relaxes flavor and size — same product line, any variant or pack size.
+        <strong>L3</strong> compares at the brand-and-format level when product lines differ.
       </p>
       <div class="tier-strip">
         <span>Strictest — identical product</span>
@@ -394,8 +386,8 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <div class="card" style="margin-top:.5rem; background:#f8fbfd">
         <p style="margin:0 0 .65rem; font-size:.9rem">
           <strong>Levels are nested, not independent.</strong> Selecting a broader strictness
-          automatically includes every stricter match. Choosing Level 2 counts SKUs that match
-          at Level 0, Level 1, or Level 2 — you cannot mix arbitrary combinations.
+          automatically includes every stricter match. Choosing L2 counts SKUs that match
+          at L0, L1, or L2 — you cannot mix arbitrary combinations.
         </p>
         <ul style="margin:0 0 .65rem; padding-left:1.2rem; font-size:.88rem; color:var(--muted)">
           <li>Broader levels automatically include every stricter match.</li>
@@ -438,7 +430,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <button class="btn secondary" id="brand-export">Export CSV</button>
     </div>
     <div class="card">
-      <h2>Brands in cross-retailer clusters — <span class="brand-lvl-label">Level 0</span></h2>
+      <h2>Brands in cross-retailer clusters — <span class="brand-lvl-label">L0</span></h2>
       <p class="sub">
         A brand appears here when at least one of its SKUs sits in a match cluster
         spanning two or more retailers at the selected level.
@@ -489,7 +481,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <button class="btn secondary" id="ex-reset">Reset</button>
     </div>
     <div class="card">
-      <h2>Match clusters — <span class="ex-lvl-label">Level 0</span></h2>
+      <h2>Match clusters — <span class="ex-lvl-label">L0</span></h2>
       <p class="muted" id="ex-summary"></p>
       <div id="ex-list"></div>
       <p class="muted" id="ex-pager"></p>
@@ -499,7 +491,6 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 <script>
 const LEVELS = ["L0","L1","L2","L3"];
-const LEVEL_DISPLAY = { L0: "Level 0", L1: "Level 1", L2: "Level 2", L3: "Level 3" };
 const CLUSTER_PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
 const PROV_CLS = {
   petvalu:"prov-petvalu", petsmart:"prov-petsmart", chewy:"prov-chewy", amazon:"prov-amazon",
@@ -561,7 +552,7 @@ let META = null;
 let CLUSTER_CACHE = {};
 let state = {
   universe: "catdog",
-  maxStrictness: "L0",
+  maxStrictness: "L2",
   level: "L0",
   selectedRetailers: ["petvalu","petsmart","chewy","amazon"],
   activePreset: "old4",
@@ -571,16 +562,7 @@ let state = {
 };
 
 function allRetailers() {
-  const retailers = META?.all_retailers || CLUSTER_PROVIDERS;
-  return [...retailers].sort((a, b) => {
-    if (a === "amazon") return 1;
-    if (b === "amazon") return -1;
-    return 0;
-  });
-}
-
-function levelLabel(l) {
-  return LEVEL_DISPLAY[l] || l;
+  return META?.all_retailers || CLUSTER_PROVIDERS;
 }
 
 function activeRetailers() {
@@ -592,13 +574,34 @@ function exactCatalog() {
   return u.exact_gtin?.catalog || META.exact_gtin?.catalog || {};
 }
 
+function activePresetKey(selected) {
+  const presets = META?.retailer_presets || META?.exact_gtin?.presets || {};
+  const sel = [...selected].sort().join(",");
+  for (const [key, retailers] of Object.entries(presets)) {
+    if ([...retailers].sort().join(",") === sel) return key;
+  }
+  return null;
+}
+
+function l0DeckForSelection(selected) {
+  const key = activePresetKey(selected);
+  if (!key) return null;
+  return U().l0_deck_presets?.[key] || META.l0_deck_presets?.[key] || null;
+}
+
 function universalAllRowCount(providers) {
   const selected = providers || activeRetailers();
   if (selected.length < 2) return 0;
 
-  const exact = computeExactOverlap(selected);
+  const presetKey = activePresetKey(selected);
+
   if (state.maxStrictness === "L0") {
-    return exact.universal;
+    const po = U().exact_gtin?.preset_overlap?.[presetKey]
+      || META.exact_gtin?.preset_overlap?.[presetKey];
+    if (po?.pv_skus_by_all_retailers != null) return po.pv_skus_by_all_retailers;
+    const deck = l0DeckForSelection(selected);
+    if (deck?.by_all_skus != null) return deck.by_all_skus;
+    return computeExactOverlap(selected).pv_skus_by_all_retailers ?? 0;
   }
 
   const hasNonCluster = selected.some(r => !CLUSTER_PROVIDERS.includes(r));
@@ -612,7 +615,21 @@ function universalAllRowCount(providers) {
     if (row?.on_all_4 != null) return row.on_all_4;
   }
 
-  return exact.universal;
+  return computeExactOverlap(selected).universal;
+}
+
+function universalBrandAllRowCount(providers) {
+  const selected = providers || activeRetailers();
+  if (selected.length < 2) return 0;
+  if (state.maxStrictness === "L0") {
+    const deck = l0DeckForSelection(selected);
+    if (deck?.by_all_brands != null) return deck.by_all_brands;
+  }
+  const bc = brandCatalogForView();
+  for (const p of selected) {
+    if (bc[p]?.n_all != null) return bc[p].n_all;
+  }
+  return 0;
 }
 
 function computeExactOverlap(selected) {
@@ -693,14 +710,7 @@ function U() {
 
 function catalogTotals() {
   const u = U();
-  const totals = { ...(u.providers || {}), ...(u.catalog_totals || {}) };
-  const catalog = u.exact_gtin && u.exact_gtin.catalog;
-  if (catalog) {
-    Object.keys(catalog).forEach(k => {
-      if (totals[k] == null && Array.isArray(catalog[k])) totals[k] = catalog[k].length;
-    });
-  }
-  return totals;
+  return u.catalog_totals || u.providers || {};
 }
 
 function renderUniverseBadge() {
@@ -743,22 +753,11 @@ function pct(a,b){ return b ? (100*a/b).toFixed(0)+"%" : "0%"; }
 function pct1(a,b){ return b ? (100*a/b).toFixed(1)+"%" : "0.0%"; }
 function provLabel(p) {
   if (!META || !p) return p || "";
-  if (p === "amazon") return "amazon.ca (all, third party included)";
   if (META.provider_labels && META.provider_labels[p]) return META.provider_labels[p];
   const v = META.providers && META.providers[p];
   return (typeof v === "string" ? v : null) || p;
 }
 function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
-function businessText(s){ return String(s || "").replace(/\bL([0-3])\b/g, "Level $1"); }
-const LEVEL_BRACKET_SUMMARY = {
-  L0: "exact barcode matches",
-  L1: "disregards size",
-  L2: "disregards size and flavour",
-  L3: "same brand, category, and format",
-};
-function levelIncludesSummary(l) {
-  return LEVEL_BRACKET_SUMMARY[l] || (LEVEL_SHORT[l] || "").toLowerCase();
-}
 
 async function loadMeta() {
   const r = await fetch("meta.json?_=" + Date.now());
@@ -833,6 +832,8 @@ function strictnessEntry() {
   const exact = computeExactOverlap(selected).overlap;
 
   if (state.maxStrictness === "L0") {
+    const deck = l0DeckForSelection(selected);
+    if (deck?.sku_overlap) return deck.sku_overlap;
     return exact;
   }
 
@@ -869,16 +870,16 @@ function renderStrictnessControl() {
   const m = META.levels[state.maxStrictness];
   el.innerHTML = `
     <div class="strictness-slider-wrap">
-      <div class="strictness-current">${levelLabel(state.maxStrictness)} — ${LEVEL_SHORT[state.maxStrictness]}</div>
-      <p class="strictness-includes">${esc(businessText(m?.includes || ""))}</p>
+      <div class="strictness-current">${state.maxStrictness} — ${LEVEL_SHORT[state.maxStrictness]}</div>
+      <p class="strictness-includes">${esc(m?.includes || "")}</p>
       <input type="range" id="strictness-slider" min="0" max="3" step="1" value="${idx >= 0 ? idx : 2}">
-      <div class="strictness-ticks">${LEVELS.map(l => `<span>${levelLabel(l)}</span>`).join("")}</div>
+      <div class="strictness-ticks">${LEVELS.map(l => `<span>${l}</span>`).join("")}</div>
     </div>
     <div class="strictness-select field">
       <label>Maximum match level</label>
       <select id="strictness-select">
         ${LEVELS.map(l => `<option value="${l}" ${l === state.maxStrictness ? "selected" : ""}>
-          ${levelLabel(l)} — ${LEVEL_SHORT[l]}</option>`).join("")}
+          ${l} — ${LEVEL_SHORT[l]}</option>`).join("")}
       </select>
     </div>`;
   const setLevel = (l) => {
@@ -886,10 +887,10 @@ function renderStrictnessControl() {
     document.getElementById("strictness-slider").value = LEVELS.indexOf(l);
     document.getElementById("strictness-select").value = l;
     const meta = META.levels[l];
-    el.querySelector(".strictness-current").textContent = `${levelLabel(l)} — ${LEVEL_SHORT[l]}`;
-    el.querySelector(".strictness-includes").textContent = businessText(meta?.includes || "");
+    el.querySelector(".strictness-current").textContent = `${l} — ${LEVEL_SHORT[l]}`;
+    el.querySelector(".strictness-includes").textContent = meta?.includes || "";
     document.getElementById("strictness-example").textContent =
-      businessText(META.strictness_examples?.[l] || "");
+      META.strictness_examples?.[l] || "";
     renderMetrics();
   };
   document.getElementById("strictness-slider").oninput = (e) => {
@@ -899,7 +900,7 @@ function renderStrictnessControl() {
     setLevel(e.target.value);
   };
   document.getElementById("strictness-example").textContent =
-    businessText(META.strictness_examples?.[state.maxStrictness] || "");
+    META.strictness_examples?.[state.maxStrictness] || "";
 }
 
 function renderExecSummary(e) {
@@ -917,7 +918,9 @@ function renderExecSummary(e) {
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
   const nAll = universalAllRowCount(providers);
-  const method = `match ${levelLabel(maxL)} (${levelIncludesSummary(maxL)})`;
+  const method = state.maxStrictness === "L0"
+    ? "exact barcode match"
+    : `match level ${maxL}`;
 
   let html = `<p style="font-size:.95rem">
     Across <strong>${providers.length}</strong> selected retailers at <strong>${method}</strong>,
@@ -975,6 +978,10 @@ function computeBrandOverlap(selected) {
 }
 
 function brandCatalogForView() {
+  if (state.maxStrictness === "L0") {
+    const deck = l0DeckForSelection(activeRetailers());
+    if (deck?.brand_overlap) return deck.brand_overlap;
+  }
   return computeBrandOverlap(activeRetailers());
 }
 
@@ -1068,10 +1075,11 @@ function renderBrandDeck() {
     });
   }
   if (n >= 2) {
+    const allCount = universalBrandAllRowCount(providers);
     rows.push({
       label: `…by all ${n} retailers`,
       cls: "indent",
-      values: Object.fromEntries(providers.map(p => [p, bc[p]?.n_all ?? bc[p]?.[`n${n-1}`] ?? 0])),
+      values: Object.fromEntries(providers.map(p => [p, allCount])),
     });
   }
   tbl.innerHTML = deckTable(rows, providers);
@@ -1174,7 +1182,7 @@ function renderRetailerChecks() {
   const retailers = allRetailers();
   el.innerHTML = retailers.map(r => {
     const checked = state.selectedRetailers.includes(r);
-    return `<label class="${r === "amazon" ? "amazon-all" : ""}"><input type="checkbox" data-retailer="${r}" ${checked ? "checked" : ""}>
+    return `<label><input type="checkbox" data-retailer="${r}" ${checked ? "checked" : ""}>
       <span class="prov-tag ${PROV_CLS[r] || ""}">${provLabel(r)}</span></label>`;
   }).join("");
   el.querySelectorAll("input").forEach(inp => {
@@ -1224,7 +1232,7 @@ function renderMatrixTable() {
   LEVELS.forEach(l => {
     const req = new Set(MATRIX[l]);
     const rate = pvRateForLevel(l);
-    html += `<tr><td><strong>${levelLabel(l)}</strong> · ${LEVEL_SHORT[l]}</td>`;
+    html += `<tr><td><strong>${l}</strong> · ${LEVEL_SHORT[l]}</td>`;
     MATRIX_COLS.forEach(c => {
       html += req.has(c) ? `<td class="dot">●</td>` : `<td class="no">—</td>`;
     });
@@ -1246,15 +1254,15 @@ function renderGuideCards() {
       : imgs.join("");
     return `<div class="guide-card">
       <div class="guide-head">
-        <span class="guide-badge">${levelLabel(l)}</span>
-        <h3>${esc(businessText(m.name.replace(/^L\d+\s*—\s*/, "")))}</h3>
+        <span class="guide-badge">${l}</span>
+        <h3>${esc(m.name.replace(/^L\d+\s*—\s*/, ""))}</h3>
         <span class="guide-tier">${x.tier}</span>
       </div>
       <div class="guide-body">
         <div>
           <div class="guide-q"><strong>Business question:</strong> ${esc(x.question)}</div>
-          <p class="guide-def">${esc(businessText(m.definition))}</p>
-          <div class="guide-use"><strong>When to use it:</strong> ${esc(businessText(m.use_case))}</div>
+          <p class="guide-def">${esc(m.definition)}</p>
+          <div class="guide-use"><strong>When to use it:</strong> ${esc(m.use_case)}</div>
           <div class="guide-stats">
             <div class="guide-stat"><div class="gs-val">${fmt(s.clusters)}</div><div class="gs-lbl">cross-retailer clusters</div></div>
             <div class="guide-stat"><div class="gs-val">${fmt(s.skus_in_cross_clusters)}</div><div class="gs-lbl">SKUs involved</div></div>
@@ -1263,7 +1271,7 @@ function renderGuideCards() {
         </div>
         <div class="guide-example">
           <h4>Example</h4>
-          <p class="ex-text">${esc(businessText(x.exampleText))}</p>
+          <p class="ex-text">${esc(x.exampleText)}</p>
           <div class="ex-imgs">${imgsHtml}</div>
         </div>
       </div>
@@ -1275,7 +1283,7 @@ function renderGuideCards() {
 function levelPills(containerId, onChange) {
   const el = document.getElementById(containerId);
   el.innerHTML = LEVELS.map(l =>
-    `<button class="level-pill${l===state.level?" active":""}" data-l="${l}">${levelLabel(l)} · ${META.levels[l].short}</button>`
+    `<button class="level-pill${l===state.level?" active":""}" data-l="${l}">${l} · ${META.levels[l].short}</button>`
   ).join("");
   el.querySelectorAll(".level-pill").forEach(btn => {
     btn.onclick = () => { state.level = btn.dataset.l; syncPills(); onChange(); };
@@ -1285,7 +1293,7 @@ function syncPills() {
   document.querySelectorAll(".level-pill").forEach(p =>
     p.classList.toggle("active", p.dataset.l === state.level));
   document.querySelectorAll(".brand-lvl-label,.ex-lvl-label").forEach(e =>
-    e.textContent = levelLabel(state.level));
+    e.textContent = state.level);
 }
 
 function renderBrandPage() {
@@ -1375,7 +1383,7 @@ async function renderExplorer() {
 
   document.getElementById("ex-summary").textContent =
     `${fmt(total)} clusters match your filters` +
-    (l === "L3" ? " (Level 3 shows a sample of SKUs per cluster; full data is in the clusters CSV files)" : "");
+    (l === "L3" ? " (L3 shows a sample of SKUs per cluster; full data is in the clusters CSV files)" : "");
 
   document.getElementById("ex-list").innerHTML = slice.map(c => `
     <div class="cluster-card">
@@ -1431,10 +1439,10 @@ async function init() {
     await loadMeta();
     document.getElementById("hdr-title").textContent = META.title;
     document.getElementById("hdr-sub").textContent =
-      businessText(META.subtitle) + (META.generated_at ? " · Updated " + META.generated_at : "");
+      META.subtitle + (META.generated_at ? " · Updated " + META.generated_at : "");
 
     state.universe = META.default_universe || "catdog";
-    state.maxStrictness = META.default_max_strictness || "L0";
+    state.maxStrictness = META.default_max_strictness || "L2";
     const toggle = document.getElementById("catdog-toggle");
     toggle.checked = state.universe === "catdog";
     toggle.onchange = onUniverseChange;
