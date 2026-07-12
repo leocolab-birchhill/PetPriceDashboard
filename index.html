@@ -145,7 +145,7 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 .prov-amazon { background: var(--am); color: #4a5563; }
 .prov-amazon_1p { background: var(--am1p); color: #111; }
 .prov-walmart { background: var(--wm); color: #111; }
-.prov-loblaws { background: var(--lob); color: #111; border: 1px solid #111; }
+.prov-loblaws { background: #4a5563; color: #fff; border: 1px solid #2d3748; }
 
 .retailer-bar {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -289,7 +289,6 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <button data-page="metrics" class="active">Business Summary</button>
     <button data-page="guide">Match Guide</button>
     <button data-page="brands">Brands</button>
-    <button data-page="explorer">Cluster Explorer</button>
   </nav>
 </header>
 
@@ -562,7 +561,7 @@ let META = null;
 let CLUSTER_CACHE = {};
 let state = {
   universe: "catdog",
-  maxStrictness: "L2",
+  maxStrictness: "L0",
   level: "L0",
   selectedRetailers: ["petvalu","petsmart","chewy","amazon"],
   activePreset: "old4",
@@ -722,6 +721,7 @@ function pct(a,b){ return b ? (100*a/b).toFixed(0)+"%" : "0%"; }
 function pct1(a,b){ return b ? (100*a/b).toFixed(1)+"%" : "0.0%"; }
 function provLabel(p) {
   if (!META || !p) return p || "";
+  if (p === "amazon") return "amazon.ca (all, third party included)";
   if (META.provider_labels && META.provider_labels[p]) return META.provider_labels[p];
   const v = META.providers && META.providers[p];
   return (typeof v === "string" ? v : null) || p;
@@ -1388,7 +1388,7 @@ async function init() {
       businessText(META.subtitle) + (META.generated_at ? " · Updated " + META.generated_at : "");
 
     state.universe = META.default_universe || "catdog";
-    state.maxStrictness = META.default_max_strictness || "L2";
+    state.maxStrictness = META.default_max_strictness || "L0";
     const toggle = document.getElementById("catdog-toggle");
     toggle.checked = state.universe === "catdog";
     toggle.onchange = onUniverseChange;
