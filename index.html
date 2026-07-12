@@ -875,8 +875,74 @@ function strictnessEntry() {
   return out;
 }
 
+function isProtectedL0Preset(selected) {
+  const key = activePresetKey(selected);
+  return state.maxStrictness === "L0" && (key === "old4" || key === "new6");
+}
+
+function reconcileOverlapForDisplay(raw) {
+  const providers = activeRetailers();
+  const n = providers.length;
+  if (!raw || n < 2 || isProtectedL0Preset(providers)) return raw;
+
+  let allCount = universalAllRowCount(providers);
+  if (n === 2) {
+    const pairCounts = providers.map((p, i) => {
+      const other = providers[1 - i];
+      return raw[p]?.pairs?.[other]?.total;
+    }).filter(Number.isFinite);
+    if (pairCounts.length) allCount = Math.min(...pairCounts);
+  }
+
+  const out = {};
+  providers.forEach(p => {
+    const d = raw[p];
+    if (!d) return;
+
+    const targetShared = n === 2 ? allCount : Math.max(0, d.shared ?? 0);
+    const targetIntermediate = Math.max(0, targetShared - allCount);
+    const buckets = Array.from(
+      { length: Math.max(0, n - 2) },
+      (_, i) => Math.max(0, sharedBucketValue(d, i))
+    );
+    let current = buckets.reduce((sum, count) => sum + count, 0);
+
+    if (buckets.length && current < targetIntermediate) {
+      buckets[buckets.length - 1] += targetIntermediate - current;
+    } else if (buckets.length && current > targetIntermediate) {
+      let excess = current - targetIntermediate;
+      for (let i = buckets.length - 1; i >= 0 && excess > 0; i--) {
+        const reduction = Math.min(buckets[i], excess);
+        buckets[i] -= reduction;
+        excess -= reduction;
+      }
+    }
+
+    out[p] = {
+      ...d,
+      shared: targetShared,
+      exclusive: Math.max(0, (d.total ?? 0) - targetShared),
+      n_buckets: buckets,
+      n_by_all: allCount,
+      n_all: allCount,
+      n1: buckets[0] ?? 0,
+      n2: buckets[1] ?? 0,
+      n3: buckets[2] ?? 0,
+    };
+  });
+  return out;
+}
+
 function overlapForView() {
-  return strictnessEntry();
+  return reconcileOverlapForDisplay(strictnessEntry());
+}
+
+function tiedAllCountFromEntry(e, providers) {
+  if (isProtectedL0Preset(providers)) return universalAllRowCount(providers);
+  for (const p of providers) {
+    if (e?.[p]?.n_by_all != null) return e[p].n_by_all;
+  }
+  return universalAllRowCount(providers);
 }
 
 function renderStrictnessControl() {
@@ -932,7 +998,7 @@ function renderExecSummary(e) {
   const bc = brandCatalogForView();
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
-  const nAll = universalAllRowCount(providers);
+  const nAll = tiedAllCountFromEntry(e, providers);
   const method = state.maxStrictness === "L0"
     ? "exact barcode match"
     : `match level ${maxL}`;
@@ -1010,7 +1076,7 @@ function renderKpis(e) {
   if (!pv) { el.innerHTML = "<p class='muted'>Select Pet Valu to see KPIs.</p>"; return; }
   let bestQ = null, bestN = -1;
   for (const q in pv.pairs) if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
-  const nAll = universalAllRowCount(activeRetailers());
+  const nAll = tiedAllCountFromEntry(e, activeRetailers());
   el.innerHTML = `
     <div class="kpi"><div class="val">${fmt(pv.shared)} <small>(${pct(pv.shared,pv.total)})</small></div>
       <div class="lbl">Pet Valu SKUs shared with any selected retailer</div></div>
@@ -1062,7 +1128,7 @@ function renderSkuDeck(e) {
     });
   }
   if (n >= 2) {
-    const allCount = universalAllRowCount(providers);
+    const allCount = tiedAllCountFromEntry(e, providers);
     rows.push({
       label: `…by all ${n} retailers`,
       cls: "indent",
@@ -1107,7 +1173,7 @@ function renderStacks(e) {
   const el = document.getElementById("stack-bars");
   if (!e) { el.innerHTML = ""; return; }
   const providers = activeRetailers();
-  const allCount = universalAllRowCount(providers);
+  const allCount = tiedAllCountFromEntry(e, providers);
   el.innerHTML = providers.map(p => {
     const d = e[p];
     if (!d) return "";
