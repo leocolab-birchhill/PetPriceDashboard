@@ -373,8 +373,8 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       </p>
       <p style="font-size:.92rem; margin:.3rem 0 .2rem">
         <strong>L0</strong> requires an identical barcode.
-        <strong>L1</strong> matches the same brand, product line, and size (flavor may differ).
-        <strong>L2</strong> relaxes size — same product line at any pack size.
+        <strong>L1</strong> matches the same brand, product line, and flavor at any pack size.
+        <strong>L2</strong> relaxes flavor and size — same product line, any variant or pack size.
         <strong>L3</strong> compares at the brand-and-format level when product lines differ.
       </p>
       <div class="tier-strip">
@@ -499,15 +499,15 @@ const PROV_CLS = {
 
 const LEVEL_SHORT = {
   L0: "Exact barcode (UPC/GTIN)",
-  L1: "Same product (brand + line + size)",
-  L2: "Comparable product line (any size)",
+  L1: "Same product (any size)",
+  L2: "Comparable variant (any size/flavour)",
   L3: "Same-brand comparable (category + format)",
 };
 
-const MATRIX_COLS = ["Barcode","Brand","Product line","Animal","Category","Format","Unit size"];
+const MATRIX_COLS = ["Barcode","Brand","Product line","Animal","Category","Format","Flavour","Unit size"];
 const MATRIX = {
   L0: ["Barcode"],
-  L1: ["Brand","Product line","Animal","Category","Format","Unit size"],
+  L1: ["Brand","Product line","Animal","Category","Format","Flavour"],
   L2: ["Brand","Product line","Animal","Category","Format"],
   L3: ["Brand","Animal","Category","Format"],
 };
@@ -520,21 +520,21 @@ const GUIDE_EXTRA = {
     imgs: [["l0.png","Living World Green Botanicals Hay Cake 75 g — same UPC across 3 retailers","Living World Green Botanicals Hay Cake with Carrots 75 g"]],
   },
   L1: {
-    tier: "Strict — same product line",
-    question: "Is the same product line listed elsewhere at the same size, even if flavor differs?",
-    exampleText: "Blue Buffalo Wilderness 24 lb dog food in Chicken vs. Salmon: same brand, line, and pack size — equivalent assortment even when UPCs differ or flavors vary.",
-    imgs: [
-      ["l2_a.png","Wilderness Chicken 24 lb","Blue Buffalo Wilderness Chicken Recipe Adult Dry Dog Food 24 lb"],
-      ["l2_b.png","Wilderness Salmon 24 lb","Blue Buffalo Wilderness Salmon Recipe Adult Dry Dog Food 24 lb"],
-    ],
-  },
-  L2: {
-    tier: "Moderate — size-agnostic line",
-    question: "Is this product line carried elsewhere, regardless of pack size?",
-    exampleText: "Greenies Original Regular Dental Treats in 12 oz and 27 oz pouches: same product line in different pack sizes — matched without requiring the same weight.",
+    tier: "Strict — same product, any size",
+    question: "Is the same product line and flavor listed elsewhere, even at a different pack size?",
+    exampleText: "Greenies Original Regular Dental Treats in 12 oz and 27 oz pouches: same brand, line, and flavor in different pack sizes — matched without requiring the same weight.",
     imgs: [
       ["l3_a.png","Greenies Original Regular 12 oz","Greenies Original Regular Dental Dog Treats 12 oz"],
       ["l3_b.png","Greenies Original Regular 27 oz","Greenies Original Regular Dental Dog Treats 27 oz"],
+    ],
+  },
+  L2: {
+    tier: "Moderate — comparable variant",
+    question: "Is this product line carried elsewhere, regardless of flavor or pack size?",
+    exampleText: "Blue Buffalo Wilderness dog food in Chicken vs. Salmon, at any pack size: same brand and line — equivalent assortment even when flavors and sizes differ.",
+    imgs: [
+      ["l2_a.png","Wilderness Chicken 24 lb","Blue Buffalo Wilderness Chicken Recipe Adult Dry Dog Food 24 lb"],
+      ["l2_b.png","Wilderness Salmon 24 lb","Blue Buffalo Wilderness Salmon Recipe Adult Dry Dog Food 24 lb"],
     ],
   },
   L3: {
