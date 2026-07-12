@@ -592,12 +592,27 @@ function exactCatalog() {
   return u.exact_gtin?.catalog || META.exact_gtin?.catalog || {};
 }
 
-function universalPvSkuCount(e) {
-  const pv = e?.petvalu;
-  if (!pv) return 0;
-  if (pv.n_by_all != null) return pv.n_by_all;
-  const n = activeRetailers().length;
-  return pv[`n${n - 1}`] ?? pv.n3 ?? 0;
+function universalAllRowCount(providers) {
+  const selected = providers || activeRetailers();
+  if (selected.length < 2) return 0;
+
+  const exact = computeExactOverlap(selected);
+  if (state.maxStrictness === "L0") {
+    return exact.universal;
+  }
+
+  const hasNonCluster = selected.some(r => !CLUSTER_PROVIDERS.includes(r));
+  const isOld4Cluster =
+    selected.length === CLUSTER_PROVIDERS.length &&
+    CLUSTER_PROVIDERS.every(r => selected.includes(r));
+
+  if (!hasNonCluster && isOld4Cluster) {
+    const rows = U().pv_overlap || META.pv_overlap || [];
+    const row = rows.find(r => r.level === state.maxStrictness);
+    if (row?.on_all_4 != null) return row.on_all_4;
+  }
+
+  return exact.universal;
 }
 
 function computeExactOverlap(selected) {
@@ -801,12 +816,6 @@ function sharedBucketValue(d, i) {
   return d[`n${i + 1}`] ?? 0;
 }
 
-function allRetailersBucket(d, providerCount) {
-  if (!d) return 0;
-  if (d.n_by_all != null) return d.n_by_all;
-  return d[`n${providerCount - 1}`] ?? d.n3 ?? 0;
-}
-
 function mergeExactPairs(semanticPairs, exactPairs, selected) {
   const out = { ...(semanticPairs || {}) };
   selected.forEach(q => {
@@ -907,7 +916,7 @@ function renderExecSummary(e) {
   const bc = brandCatalogForView();
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
-  const nAll = universalPvSkuCount(e);
+  const nAll = universalAllRowCount(providers);
   const method = `match ${levelLabel(maxL)} (${levelIncludesSummary(maxL)})`;
 
   let html = `<p style="font-size:.95rem">
@@ -976,7 +985,7 @@ function renderKpis(e) {
   if (!pv) { el.innerHTML = "<p class='muted'>Select Pet Valu to see KPIs.</p>"; return; }
   let bestQ = null, bestN = -1;
   for (const q in pv.pairs) if (pv.pairs[q].total > bestN) { bestN = pv.pairs[q].total; bestQ = q; }
-  const nAll = universalPvSkuCount(e);
+  const nAll = universalAllRowCount(activeRetailers());
   el.innerHTML = `
     <div class="kpi"><div class="val">${fmt(pv.shared)} <small>(${pct(pv.shared,pv.total)})</small></div>
       <div class="lbl">Pet Valu SKUs shared with any selected retailer</div></div>
@@ -1028,10 +1037,11 @@ function renderSkuDeck(e) {
     });
   }
   if (n >= 2) {
+    const allCount = universalAllRowCount(providers);
     rows.push({
       label: `…by all ${n} retailers`,
       cls: "indent",
-      values: Object.fromEntries(providers.map(p => [p, allRetailersBucket(e[p], n)])),
+      values: Object.fromEntries(providers.map(p => [p, allCount])),
     });
   }
   tbl.innerHTML = deckTable(rows, providers);
@@ -1071,6 +1081,7 @@ function renderStacks(e) {
   const el = document.getElementById("stack-bars");
   if (!e) { el.innerHTML = ""; return; }
   const providers = activeRetailers();
+  const allCount = universalAllRowCount(providers);
   el.innerHTML = providers.map(p => {
     const d = e[p];
     if (!d) return "";
@@ -1081,7 +1092,7 @@ function renderStacks(e) {
       const n = sharedBucketValue(d, i);
       segs.push([`s${Math.min(i+1,3)}`, n, `${i + 1} other${i ? "s" : ""}`]);
     }
-    segs.push(["s3", allRetailersBucket(d, providers.length), `All ${providers.length}`]);
+    segs.push(["s3", allCount, `All ${providers.length}`]);
     const inner = segs.map(([cls, n, lbl]) => {
       const w = d.total ? 100*n/d.total : 0;
       const txt = w > 7 ? `${fmt(n)} (${pct(n, d.total)})` : (w > 3.5 ? pct(n, d.total) : "");
