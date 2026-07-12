@@ -15,9 +15,11 @@
   --accent-dark: #163f61;
   --accent-light: #e8f2fa;
   --pv: #2d7a4f;
-  --ps: #2563eb;
-  --ch: #d97706;
-  --am: #7c3aed;
+  --ps: #c0504d;
+  --ch: #9dc3d5;
+  --am: #b7bec7;
+  --am1p: #ffc000;
+  --wm: #d9b2e8;
   --seg-excl: #d4dbe4;
   --seg-1: #8db8dd;
   --seg-2: #3f7fb5;
@@ -138,11 +140,11 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 .prov-tag { display: inline-block; padding: .14rem .45rem; border-radius: 4px; font-size: .72rem; font-weight: 600; color: #fff; margin-right: .2rem; }
 .prov-petvalu { background: var(--pv); }
 .prov-petsmart { background: var(--ps); }
-.prov-chewy { background: var(--ch); }
-.prov-amazon { background: var(--am); }
-.prov-amazon_1p { background: #e47911; }
-.prov-walmart { background: #0071ce; }
-.prov-loblaws { background: #da291c; }
+.prov-chewy { background: var(--ch); color: #111; }
+.prov-amazon { background: var(--am); color: #4a5563; }
+.prov-amazon_1p { background: var(--am1p); color: #111; }
+.prov-walmart { background: var(--wm); color: #111; }
+.prov-loblaws { background: #4a5563; color: #fff; border: 1px solid #2d3748; }
 
 .retailer-bar {
   background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
@@ -156,7 +158,12 @@ table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
 }
 .retailer-presets button.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
 .retailer-checks { display: flex; flex-wrap: wrap; gap: .65rem 1.1rem; font-size: .88rem; }
-.retailer-checks label { display: flex; align-items: center; gap: .35rem; cursor: pointer; }
+.retailer-checks label {
+  display: flex; align-items: center; gap: .35rem; cursor: pointer;
+  padding: .25rem .45rem; border-radius: 999px; border: 1px solid transparent;
+}
+.retailer-checks label.amazon-all { opacity: .72; order: 99; }
+.retailer-checks label:hover { background: #f8fafc; border-color: var(--border); }
 .retailer-note { margin: .55rem 0 0; font-size: .82rem; color: var(--muted); }
 
 /* ---- guide ---- */
@@ -278,8 +285,8 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   <h1 id="hdr-title">SKU &amp; Brand Overlap Explorer</h1>
   <p id="hdr-sub">Loading …</p>
   <nav class="tabs" id="nav">
-    <button data-page="metrics" class="active">Key Metrics</button>
-    <button data-page="guide">Levels Guide</button>
+    <button data-page="metrics" class="active">Business Summary</button>
+    <button data-page="guide">Match Guide</button>
     <button data-page="brands">Brands</button>
     <button data-page="explorer">Cluster Explorer</button>
   </nav>
@@ -292,6 +299,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
     <h2>Retailers in view</h2>
     <div class="retailer-presets" id="retailer-presets"></div>
     <div class="retailer-checks" id="retailer-checks"></div>
+    <p class="retailer-note">Pick the retailers you want to compare. Amazon.ca (all, third party included) is greyed out and listed last because it represents the broader legacy Amazon marketplace, but it remains selectable.</p>
   </div>
 
   <div class="universe-bar" id="universe-bar">
@@ -492,6 +500,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 <script>
 const LEVELS = ["L0","L1","L2","L3"];
 const CLUSTER_PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
+const AMAZON_ALL_VALIDATED_BRANDS = 3932;
 const PROV_CLS = {
   petvalu:"prov-petvalu", petsmart:"prov-petsmart", chewy:"prov-chewy", amazon:"prov-amazon",
   amazon_1p:"prov-amazon_1p", walmart:"prov-walmart", loblaws:"prov-loblaws",
@@ -554,15 +563,20 @@ let state = {
   universe: "catdog",
   maxStrictness: "L2",
   level: "L0",
-  selectedRetailers: ["petvalu","petsmart","chewy","amazon"],
-  activePreset: "old4",
+  selectedRetailers: ["petvalu","petsmart","chewy","amazon_1p","walmart","loblaws"],
+  activePreset: "new6",
   exPage: 0,
   exPageSize: 40,
   brandSort: { col: "clusters", asc: false },
 };
 
 function allRetailers() {
-  return META?.all_retailers || CLUSTER_PROVIDERS;
+  const retailers = META?.all_retailers || CLUSTER_PROVIDERS;
+  return [...retailers].sort((a, b) => {
+    if (a === "amazon") return 1;
+    if (b === "amazon") return -1;
+    return 0;
+  });
 }
 
 function activeRetailers() {
@@ -753,6 +767,7 @@ function pct(a,b){ return b ? (100*a/b).toFixed(0)+"%" : "0%"; }
 function pct1(a,b){ return b ? (100*a/b).toFixed(1)+"%" : "0.0%"; }
 function provLabel(p) {
   if (!META || !p) return p || "";
+  if (p === "amazon") return "Amazon.ca (all, third party included)";
   if (META.provider_labels && META.provider_labels[p]) return META.provider_labels[p];
   const v = META.providers && META.providers[p];
   return (typeof v === "string" ? v : null) || p;
@@ -973,15 +988,18 @@ function computeBrandOverlap(selected) {
       n2: nBuckets[1] || 0,
       n3: nBuckets[2] || 0,
     };
+    if (p === "amazon") {
+      const shared = nBuckets.reduce((sum, count) => sum + count, 0) + nAll;
+      out[p].total = AMAZON_ALL_VALIDATED_BRANDS;
+      out[p].n0 = Math.max(0, AMAZON_ALL_VALIDATED_BRANDS - shared);
+    }
   });
   return out;
 }
 
 function brandCatalogForView() {
-  if (state.maxStrictness === "L0") {
-    const deck = l0DeckForSelection(activeRetailers());
-    if (deck?.brand_overlap) return deck.brand_overlap;
-  }
+  const deck = l0DeckForSelection(activeRetailers());
+  if (deck?.brand_overlap) return deck.brand_overlap;
   return computeBrandOverlap(activeRetailers());
 }
 
@@ -1161,10 +1179,10 @@ function renderMetrics() {
 function renderRetailerBar() {
   const presets = META.retailer_presets || { old4: CLUSTER_PROVIDERS, new6: allRetailers() };
   const presetEl = document.getElementById("retailer-presets");
-  presetEl.innerHTML = Object.keys(presets).map(key => {
-    const label = key === "old4" ? "4 retailers" : key === "new6" ? "6 retailers" : key;
-    return `<button type="button" data-preset="${key}" class="${state.activePreset === key ? "active" : ""}">${label}</button>`;
-  }).join("");
+  const visiblePresets = presets.new6 ? ["new6"] : Object.keys(presets).slice(-1);
+  presetEl.innerHTML = visiblePresets.map(key =>
+    `<button type="button" data-preset="${key}" class="${state.activePreset === key ? "active" : ""}">All 6 retailers</button>`
+  ).join("");
   presetEl.querySelectorAll("button").forEach(btn => {
     btn.onclick = () => {
       state.activePreset = btn.dataset.preset;
@@ -1182,7 +1200,7 @@ function renderRetailerChecks() {
   const retailers = allRetailers();
   el.innerHTML = retailers.map(r => {
     const checked = state.selectedRetailers.includes(r);
-    return `<label><input type="checkbox" data-retailer="${r}" ${checked ? "checked" : ""}>
+    return `<label class="${r === "amazon" ? "amazon-all" : ""}"><input type="checkbox" data-retailer="${r}" ${checked ? "checked" : ""}>
       <span class="prov-tag ${PROV_CLS[r] || ""}">${provLabel(r)}</span></label>`;
   }).join("");
   el.querySelectorAll("input").forEach(inp => {
@@ -1447,8 +1465,8 @@ async function init() {
     toggle.checked = state.universe === "catdog";
     toggle.onchange = onUniverseChange;
 
-    state.selectedRetailers = META.default_retailers || META.retailer_presets?.old4 || CLUSTER_PROVIDERS.slice();
-    state.activePreset = "old4";
+    state.selectedRetailers = META.default_retailers || META.retailer_presets?.new6 || CLUSTER_PROVIDERS.slice();
+    state.activePreset = activePresetKey(state.selectedRetailers) === "new6" ? "new6" : "";
 
     renderRetailerBar();
     renderUniverseBadge();
