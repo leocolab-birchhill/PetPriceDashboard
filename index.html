@@ -728,11 +728,14 @@ function provLabel(p) {
 }
 function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
 function businessText(s){ return String(s || "").replace(/\bL([0-3])\b/g, "Level $1"); }
+const LEVEL_BRACKET_SUMMARY = {
+  L0: "exact barcode matches",
+  L1: "disregards size",
+  L2: "disregards size and flavour",
+  L3: "same brand, category, and format",
+};
 function levelIncludesSummary(l) {
-  const idx = LEVELS.indexOf(l);
-  const included = (idx >= 0 ? LEVELS.slice(0, idx + 1) : [l])
-    .map(level => `${levelLabel(level)}: ${LEVEL_SHORT[level] || ""}`);
-  return `includes ${included.join("; ")}`;
+  return LEVEL_BRACKET_SUMMARY[l] || (LEVEL_SHORT[l] || "").toLowerCase();
 }
 
 async function loadMeta() {
