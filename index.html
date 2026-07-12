@@ -870,6 +870,12 @@ function strictnessEntry() {
     return exact;
   }
 
+  // L1-L3: precomputed, internally consistent tables for every retailer combination.
+  const subsetKey = [...selected].sort().join("+");
+  const subsetTables = U().subset_overlap || META.subset_overlap || {};
+  const precomputed = subsetTables[subsetKey]?.[state.maxStrictness];
+  if (precomputed) return precomputed;
+
   const subs = U().overlap_by_strictness || META.overlap_by_strictness || {};
   const raw = subs[state.maxStrictness];
   const clusterSel = selected.filter(r => CLUSTER_PROVIDERS.includes(r));
@@ -901,7 +907,7 @@ function isProtectedL0Preset(selected) {
 function reconcileOverlapForDisplay(raw) {
   const providers = activeRetailers();
   const n = providers.length;
-  if (!raw || n < 2 || isProtectedL0Preset(providers)) return raw;
+  if (!raw || raw._precomputed || n < 2 || isProtectedL0Preset(providers)) return raw;
 
   let allCount = universalAllRowCount(providers);
   if (n === 2) {
