@@ -678,7 +678,14 @@ function U() {
 
 function catalogTotals() {
   const u = U();
-  return u.catalog_totals || u.providers || {};
+  const totals = { ...(u.providers || {}), ...(u.catalog_totals || {}) };
+  const catalog = u.exact_gtin && u.exact_gtin.catalog;
+  if (catalog) {
+    Object.keys(catalog).forEach(k => {
+      if (totals[k] == null && Array.isArray(catalog[k])) totals[k] = catalog[k].length;
+    });
+  }
+  return totals;
 }
 
 function renderUniverseBadge() {
@@ -728,6 +735,15 @@ function provLabel(p) {
 }
 function provTags(ps){ return ps.map(p=>`<span class="prov-tag ${PROV_CLS[p]||""}">${provLabel(p)}</span>`).join(""); }
 function businessText(s){ return String(s || "").replace(/\bL([0-3])\b/g, "Level $1"); }
+const LEVEL_BRACKET_SUMMARY = {
+  L0: "exact barcode matches",
+  L1: "disregards size",
+  L2: "disregards size and flavour",
+  L3: "same brand, category, and format",
+};
+function levelIncludesSummary(l) {
+  return LEVEL_BRACKET_SUMMARY[l] || (LEVEL_SHORT[l] || "").toLowerCase();
+}
 
 async function loadMeta() {
   const r = await fetch("meta.json?_=" + Date.now());
@@ -892,9 +908,7 @@ function renderExecSummary(e) {
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
   const nAll = universalPvSkuCount(e);
-  const method = state.maxStrictness === "L0"
-    ? "exact barcode match"
-    : `match ${levelLabel(maxL)}`;
+  const method = `match ${levelLabel(maxL)} (${levelIncludesSummary(maxL)})`;
 
   let html = `<p style="font-size:.95rem">
     Across <strong>${providers.length}</strong> selected retailers at <strong>${method}</strong>,
