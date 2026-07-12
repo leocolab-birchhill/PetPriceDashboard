@@ -380,10 +380,10 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
         using four match strictness levels, ordered from strictest to broadest.
       </p>
       <p style="font-size:.92rem; margin:.3rem 0 .2rem">
-        <strong>L0</strong> requires an identical barcode.
-        <strong>L1</strong> matches the same brand, product line, and flavor at any pack size.
-        <strong>L2</strong> relaxes flavor and size — same product line, any variant or pack size.
-        <strong>L3</strong> compares at the brand-and-format level when product lines differ.
+        <strong>Level 0</strong> requires an identical barcode.
+        <strong>Level 1</strong> matches the same brand, product line, and flavor at any pack size.
+        <strong>Level 2</strong> relaxes flavor and size — same product line, any variant or pack size.
+        <strong>Level 3</strong> compares at the brand-and-format level when product lines differ.
       </p>
       <div class="tier-strip">
         <span>Strictest — identical product</span>
@@ -394,8 +394,8 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <div class="card" style="margin-top:.5rem; background:#f8fbfd">
         <p style="margin:0 0 .65rem; font-size:.9rem">
           <strong>Levels are nested, not independent.</strong> Selecting a broader strictness
-          automatically includes every stricter match. Choosing L2 counts SKUs that match
-          at L0, L1, or L2 — you cannot mix arbitrary combinations.
+          automatically includes every stricter match. Choosing Level 2 counts SKUs that match
+          at Level 0, Level 1, or Level 2 — you cannot mix arbitrary combinations.
         </p>
         <ul style="margin:0 0 .65rem; padding-left:1.2rem; font-size:.88rem; color:var(--muted)">
           <li>Broader levels automatically include every stricter match.</li>
@@ -438,7 +438,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <button class="btn secondary" id="brand-export">Export CSV</button>
     </div>
     <div class="card">
-      <h2>Brands in cross-retailer clusters — <span class="brand-lvl-label">L0</span></h2>
+      <h2>Brands in cross-retailer clusters — <span class="brand-lvl-label">Level 0</span></h2>
       <p class="sub">
         A brand appears here when at least one of its SKUs sits in a match cluster
         spanning two or more retailers at the selected level.
@@ -489,7 +489,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
       <button class="btn secondary" id="ex-reset">Reset</button>
     </div>
     <div class="card">
-      <h2>Match clusters — <span class="ex-lvl-label">L0</span></h2>
+      <h2>Match clusters — <span class="ex-lvl-label">Level 0</span></h2>
       <p class="muted" id="ex-summary"></p>
       <div id="ex-list"></div>
       <p class="muted" id="ex-pager"></p>
@@ -499,6 +499,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 <script>
 const LEVELS = ["L0","L1","L2","L3"];
+const LEVEL_DISPLAY = { L0: "Level 0", L1: "Level 1", L2: "Level 2", L3: "Level 3" };
 const CLUSTER_PROVIDERS = ["petvalu","petsmart","chewy","amazon"];
 const AMAZON_ALL_VALIDATED_BRANDS = 3932;
 const PROV_CLS = {
@@ -512,6 +513,23 @@ const LEVEL_SHORT = {
   L2: "Comparable variant (any size/flavour)",
   L3: "Same-brand comparable (category + format)",
 };
+
+function levelLabel(level) {
+  return LEVEL_DISPLAY[level] || level;
+}
+
+function businessText(text) {
+  return String(text || "").replace(/\bL([0-3])\b/g, "Level $1");
+}
+
+function levelIncludesSummary(level) {
+  const raw = businessText(
+    META?.strictness_examples?.[level] || META?.levels?.[level]?.includes || ""
+  );
+  const prefix = new RegExp(`^Selecting ${levelLabel(level)} includes\\s*`, "i");
+  const summary = raw.replace(prefix, "").trim();
+  return summary ? summary.charAt(0).toUpperCase() + summary.slice(1) : "";
+}
 
 const MATRIX_COLS = ["Barcode","Brand","Product line","Animal","Category","Format","Flavour","Unit size"];
 const MATRIX = {
@@ -951,16 +969,16 @@ function renderStrictnessControl() {
   const m = META.levels[state.maxStrictness];
   el.innerHTML = `
     <div class="strictness-slider-wrap">
-      <div class="strictness-current">${state.maxStrictness} — ${LEVEL_SHORT[state.maxStrictness]}</div>
-      <p class="strictness-includes">${esc(m?.includes || "")}</p>
+      <div class="strictness-current">${levelLabel(state.maxStrictness)} — ${LEVEL_SHORT[state.maxStrictness]}</div>
+      <p class="strictness-includes">${esc(businessText(m?.includes || ""))}</p>
       <input type="range" id="strictness-slider" min="0" max="3" step="1" value="${idx >= 0 ? idx : 2}">
-      <div class="strictness-ticks">${LEVELS.map(l => `<span>${l}</span>`).join("")}</div>
+      <div class="strictness-ticks">${LEVELS.map(l => `<span>${levelLabel(l)}</span>`).join("")}</div>
     </div>
     <div class="strictness-select field">
       <label>Maximum match level</label>
       <select id="strictness-select">
         ${LEVELS.map(l => `<option value="${l}" ${l === state.maxStrictness ? "selected" : ""}>
-          ${l} — ${LEVEL_SHORT[l]}</option>`).join("")}
+          ${levelLabel(l)} — ${LEVEL_SHORT[l]}</option>`).join("")}
       </select>
     </div>`;
   const setLevel = (l) => {
@@ -968,10 +986,10 @@ function renderStrictnessControl() {
     document.getElementById("strictness-slider").value = LEVELS.indexOf(l);
     document.getElementById("strictness-select").value = l;
     const meta = META.levels[l];
-    el.querySelector(".strictness-current").textContent = `${l} — ${LEVEL_SHORT[l]}`;
-    el.querySelector(".strictness-includes").textContent = meta?.includes || "";
+    el.querySelector(".strictness-current").textContent = `${levelLabel(l)} — ${LEVEL_SHORT[l]}`;
+    el.querySelector(".strictness-includes").textContent = businessText(meta?.includes || "");
     document.getElementById("strictness-example").textContent =
-      META.strictness_examples?.[l] || "";
+      businessText(META.strictness_examples?.[l] || "");
     renderMetrics();
   };
   document.getElementById("strictness-slider").oninput = (e) => {
@@ -981,7 +999,7 @@ function renderStrictnessControl() {
     setLevel(e.target.value);
   };
   document.getElementById("strictness-example").textContent =
-    META.strictness_examples?.[state.maxStrictness] || "";
+    businessText(META.strictness_examples?.[state.maxStrictness] || "");
 }
 
 function renderExecSummary(e) {
@@ -999,11 +1017,12 @@ function renderExecSummary(e) {
   const pvB = bc.petvalu;
   const brandShared = pvB ? (pvB.total - pvB.n0) : null;
   const nAll = tiedAllCountFromEntry(e, providers);
-  const method = state.maxStrictness === "L0"
-    ? "exact barcode match"
-    : `match level ${maxL}`;
+  const method = `${levelLabel(maxL)} — ${LEVEL_SHORT[maxL]}`;
+  const includes = levelIncludesSummary(maxL);
 
   let html = `<p style="font-size:.95rem">
+    <strong>${levelLabel(maxL)} includes:</strong> ${esc(includes)}</p>
+    <p style="font-size:.95rem">
     Across <strong>${providers.length}</strong> selected retailers at <strong>${method}</strong>,
     <strong>${fmt(pv.shared)}</strong> of Pet Valu’s <strong>${fmt(pv.total)}</strong> SKUs
     (<strong>${pct1(pv.shared, pv.total)}</strong>) also appear at another selected retailer.
@@ -1014,7 +1033,7 @@ function renderExecSummary(e) {
       <strong>${provLabel(bestQ)}</strong> has the largest overlap with Pet Valu
       (<strong>${fmt(bestN)}</strong> SKUs, ${pct1(bestN, pv.total)}).
       <strong>${fmt(nAll)}</strong> Pet Valu SKUs appear at all
-      ${providers.length} ${maxL === "L0" ? "selected" : "matched"} retailers.</p>`;
+      ${providers.length} selected retailers.</p>`;
   }
   if (pvB) {
     html += `<p style="font-size:.95rem">
@@ -1316,7 +1335,7 @@ function renderMatrixTable() {
   LEVELS.forEach(l => {
     const req = new Set(MATRIX[l]);
     const rate = pvRateForLevel(l);
-    html += `<tr><td><strong>${l}</strong> · ${LEVEL_SHORT[l]}</td>`;
+    html += `<tr><td><strong>${levelLabel(l)}</strong> · ${LEVEL_SHORT[l]}</td>`;
     MATRIX_COLS.forEach(c => {
       html += req.has(c) ? `<td class="dot">●</td>` : `<td class="no">—</td>`;
     });
@@ -1338,7 +1357,7 @@ function renderGuideCards() {
       : imgs.join("");
     return `<div class="guide-card">
       <div class="guide-head">
-        <span class="guide-badge">${l}</span>
+        <span class="guide-badge">${levelLabel(l)}</span>
         <h3>${esc(m.name.replace(/^L\d+\s*—\s*/, ""))}</h3>
         <span class="guide-tier">${x.tier}</span>
       </div>
@@ -1367,7 +1386,7 @@ function renderGuideCards() {
 function levelPills(containerId, onChange) {
   const el = document.getElementById(containerId);
   el.innerHTML = LEVELS.map(l =>
-    `<button class="level-pill${l===state.level?" active":""}" data-l="${l}">${l} · ${META.levels[l].short}</button>`
+    `<button class="level-pill${l===state.level?" active":""}" data-l="${l}">${levelLabel(l)} · ${META.levels[l].short}</button>`
   ).join("");
   el.querySelectorAll(".level-pill").forEach(btn => {
     btn.onclick = () => { state.level = btn.dataset.l; syncPills(); onChange(); };
@@ -1377,7 +1396,7 @@ function syncPills() {
   document.querySelectorAll(".level-pill").forEach(p =>
     p.classList.toggle("active", p.dataset.l === state.level));
   document.querySelectorAll(".brand-lvl-label,.ex-lvl-label").forEach(e =>
-    e.textContent = state.level);
+    e.textContent = levelLabel(state.level));
 }
 
 function renderBrandPage() {
