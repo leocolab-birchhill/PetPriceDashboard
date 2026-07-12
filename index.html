@@ -678,7 +678,14 @@ function U() {
 
 function catalogTotals() {
   const u = U();
-  return u.catalog_totals || u.providers || {};
+  const totals = { ...(u.providers || {}), ...(u.catalog_totals || {}) };
+  const catalog = u.exact_gtin && u.exact_gtin.catalog;
+  if (catalog) {
+    Object.keys(catalog).forEach(k => {
+      if (totals[k] == null && Array.isArray(catalog[k])) totals[k] = catalog[k].length;
+    });
+  }
+  return totals;
 }
 
 function renderUniverseBadge() {
