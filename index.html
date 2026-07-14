@@ -1596,7 +1596,7 @@ function renderPricing() {
   const hidden = comps.reduce((n, q) => n + (statsOf(q).excluded_extreme_gaps || 0), 0);
   histCapNoteEl.textContent = level === "L0"
     ? "Level 0 includes the full distribution; values above ±30% are folded into the outer 20–30% buckets."
-    : At levels 1 to 3 some comparisons outside ±20% are excluded from every pricing KPI, table, chart, and matrix at ${levelLabel(level)} because unresolved size differences (not able to have price normalized per one unit of size) can distort extreme gaps.`;
+    : 'At levels 1 to 3, some comparisons outside ±20% are excluded from every pricing KPI, table, chart, and matrix at ${levelLabel(level)} because unresolved size differences (not able to have price normalized per one unit of size) can distort extreme gaps.`;
 
   // ---- price gap by ticket size (band matrix) ----
   const heatCell = (b) => {
