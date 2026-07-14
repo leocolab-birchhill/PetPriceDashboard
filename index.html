@@ -39,7 +39,10 @@ header {
 }
 header h1 { margin: 0 0 .2rem; font-size: 1.4rem; font-weight: 600; }
 header p { margin: 0; opacity: .85; font-size: .9rem; }
-nav.tabs { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: 1rem; }
+nav.tabs {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: .2rem .55rem;
+  margin-top: 1rem;
+}
 nav.tabs button {
   background: transparent; border: none; color: rgba(255,255,255,.72);
   padding: .65rem 1.05rem; cursor: pointer; font-size: .92rem;
@@ -47,6 +50,26 @@ nav.tabs button {
 }
 nav.tabs button:hover { color: #fff; }
 nav.tabs button.active { color: #fff; border-bottom-color: #7ec8e3; font-weight: 600; }
+nav.tabs button.tab-primary {
+  font-size: 1.02rem; font-weight: 700; color: rgba(255,255,255,.95);
+  padding: .75rem 1.2rem .7rem; letter-spacing: .01em;
+}
+nav.tabs button.tab-primary.active {
+  border-bottom-color: #9fd8ef; border-bottom-width: 4px;
+}
+nav.tabs button.tab-support {
+  font-size: .8rem; font-weight: 400; color: rgba(255,255,255,.48);
+  padding: .45rem .75rem .55rem; opacity: .85;
+}
+nav.tabs button.tab-support:hover { color: rgba(255,255,255,.78); opacity: 1; }
+nav.tabs button.tab-support.active {
+  color: rgba(255,255,255,.82); font-weight: 500;
+  border-bottom-color: rgba(126,200,227,.55); border-bottom-width: 2px;
+}
+nav.tabs .tab-sep {
+  width: 1px; align-self: stretch; margin: .35rem .35rem .55rem;
+  background: rgba(255,255,255,.18);
+}
 
 main { max-width: 1440px; margin: 0 auto; padding: 1.25rem 1.6rem 3rem; }
 .page { display: none; }
@@ -135,6 +158,13 @@ table.heat th { background: #f0f4f8; font-weight: 600; }
 table.heat td.diag { background: #f6f8fa; color: #b7c0ca; }
 table.heat td .h-pct { font-weight: 700; }
 table.heat td .h-cnt { font-size: .72rem; color: inherit; opacity: .8; }
+table.heat.price-band { width: 100%; table-layout: fixed; font-size: .92rem; }
+table.heat.price-band th, table.heat.price-band td {
+  padding: 1.15rem .85rem; min-height: 4.2rem; vertical-align: middle;
+}
+table.heat.price-band th:first-child { width: 9.5rem; text-align: left; }
+table.heat.price-band td .h-pct { font-size: 1.05rem; }
+table.heat.price-band td .h-cnt { font-size: .78rem; margin-top: .2rem; }
 
 /* ---- retailer tags ---- */
 .prov-tag { display: inline-block; padding: .14rem .45rem; border-radius: 4px; font-size: .72rem; font-weight: 600; color: #fff; margin-right: .2rem; }
@@ -238,6 +268,8 @@ table.matrix td.no { color: #d3dae2; }
 .level-pills { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1rem; }
 .level-pill { padding: .4rem .85rem; border-radius: 999px; border: 2px solid var(--border); background: #fff; cursor: pointer; font-size: .85rem; font-weight: 500; }
 .level-pill.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+.price-pill { padding: .4rem .85rem; border-radius: 999px; border: 2px solid var(--border); background: #fff; cursor: pointer; font-size: .85rem; font-weight: 500; }
+.price-pill.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
 
 table.data { width: 100%; border-collapse: collapse; font-size: .86rem; }
 table.data th, table.data td { padding: .55rem .65rem; text-align: left; border-bottom: 1px solid var(--border); }
@@ -257,8 +289,7 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
 .hint-box { background: #fffbeb; border: 1px solid #fde68a; padding: .85rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: .9rem; }
 
 .universe-bar {
-  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
-  gap: .75rem; padding: .85rem 1.15rem; margin-bottom: 1rem;
+  display: flex; align-items: center; padding: .85rem 1.15rem; margin-bottom: 1rem;
   background: linear-gradient(135deg, #eef6fc 0%, #f8fafc 100%);
   border: 1px solid #c5d9e8; border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -271,13 +302,48 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   width: 18px; height: 18px; margin-top: .15rem; accent-color: var(--accent);
   flex-shrink: 0;
 }
-.universe-counts { font-size: .78rem; color: var(--muted); text-align: right; line-height: 1.5; }
 .universe-badge {
   display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .03em;
   text-transform: uppercase; padding: .2rem .55rem; border-radius: 4px; margin-left: .35rem;
   background: #d4edda; color: #1e5631; vertical-align: middle;
 }
 .universe-badge.all { background: #fff3cd; color: #856404; }
+
+/* ---- pricing page ---- */
+.price-pos { color: #2d7a4f; font-weight: 700; }
+.price-neg { color: #b45f06; font-weight: 700; }
+.price-zero { color: var(--muted); font-weight: 600; }
+.seg.pr-cheaper { background: #b45f06; }
+.seg.pr-parity { background: #c8d3de; color: #3d4a58; }
+.seg.pr-premium { background: #2d7a4f; }
+.price-hist { display: flex; align-items: flex-end; gap: .55rem; margin-top: 1.1rem; overflow-x: auto; padding-bottom: .25rem; }
+.ph-bin { flex: 1; min-width: 62px; display: flex; flex-direction: column; align-items: center; gap: .3rem; }
+.ph-bars { display: flex; align-items: flex-end; gap: 2px; height: 130px; }
+.ph-bar { width: 12px; border-radius: 2px 2px 0 0; min-height: 1px; }
+.ph-lbl { font-size: .66rem; color: var(--muted); text-align: center; line-height: 1.25; font-weight: 600; }
+.price-axis {
+  display: flex; flex-direction: column; gap: .35rem;
+  margin: .85rem .4rem .15rem; color: var(--text);
+}
+.price-axis-line {
+  position: relative; height: 0; border-top: 2px solid #1a2330;
+  margin: .15rem 0 .1rem;
+}
+.price-axis-line::before,
+.price-axis-line::after {
+  content: ""; position: absolute; top: -6px;
+  border: 6px solid transparent;
+}
+.price-axis-line::before { left: -2px; border-right-color: #1a2330; border-left: 0; }
+.price-axis-line::after { right: -2px; border-left-color: #1a2330; border-right: 0; }
+.price-axis-labels {
+  display: flex; justify-content: space-between; gap: 1rem;
+  font-size: .8rem; font-style: italic; color: #3d4a58;
+}
+.price-axis-labels .left { color: #b45f06; }
+.price-axis-labels .right { color: #2d7a4f; text-align: right; }
+.price-legend { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .8rem; font-size: .8rem; }
+.price-legend span { display: flex; align-items: center; gap: .4rem; }
 </style>
 </head>
 <body>
@@ -285,10 +351,12 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
   <h1 id="hdr-title">SKU &amp; Brand Overlap Explorer</h1>
   <p id="hdr-sub">Loading …</p>
   <nav class="tabs" id="nav">
-    <button data-page="metrics" class="active">Business Summary</button>
-    <button data-page="guide">Match Guide</button>
-    <button data-page="brands">Brands</button>
-    <button data-page="explorer">Cluster Explorer</button>
+    <button data-page="metrics" class="tab-primary active">Overlap Summary</button>
+    <button data-page="pricing" class="tab-primary">Pricing</button>
+    <span class="tab-sep" aria-hidden="true"></span>
+    <button data-page="guide" class="tab-support">Match Guide</button>
+    <button data-page="brands" class="tab-support">Brands</button>
+    <button data-page="explorer" class="tab-support">Cluster Explorer</button>
   </nav>
 </header>
 
@@ -310,7 +378,6 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
         <span class="universe-badge" id="universe-badge">Cat/dog</span>
       </span>
     </label>
-    <div class="universe-counts" id="universe-counts"></div>
   </div>
 
   <!-- ==================== KEY METRICS ==================== -->
@@ -368,6 +435,98 @@ table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
         </p>
         <div style="overflow:auto"><table class="deck" id="brand-deck"></table></div>
       </div>
+    </div>
+  </section>
+
+  <!-- ==================== PRICING ==================== -->
+  <section id="page-pricing" class="page">
+    <div class="card strictness-card">
+      <h2>Match strictness</h2>
+      <p class="sub">
+        Price comparisons use the same match level as the rest of the dashboard.
+        At Level 0 the items are physically identical (same barcode), so gaps are
+        directly comparable. At broader levels pack sizes and flavours can differ,
+        so gaps partly reflect size differences.
+      </p>
+      <div class="level-pills" id="pricing-levels"></div>
+    </div>
+
+    <div class="kpi-grid" id="price-kpis"></div>
+
+    <div class="card">
+      <h2>Pet Valu price position vs each retailer</h2>
+      <p class="sub" id="price-table-sub"></p>
+      <div style="overflow:auto"><table class="deck" id="price-table"></table></div>
+      <p class="muted" style="margin-top:.6rem">
+        A pair is one Pet Valu SKU matched to a competitor listing with a valid price on both
+        sides. When pack size can be read from both listings, prices are compared per unit
+        (per g / ml / count) and the competitor price is size-adjusted to the Pet Valu pack,
+        so multi-packs and different bag sizes compare fairly<span id="price-unit-note"></span>.
+        When a Pet Valu SKU matches several competitor listings, the reference is the median.
+        Walmart, Loblaws, and Amazon 1P are matched by exact barcode only, so their numbers
+        are identical at every level.
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Pet Valu price positioning</h2>
+      <p class="sub">
+        Share of matched SKUs where Pet Valu is positioned at a discount, at parity
+        (within ±2%), or at a premium to each retailer. Premium positioning is descriptive,
+        not an indication of positive or negative performance.
+      </p>
+      <div class="stack-rows" id="price-share-bars"></div>
+      <div class="price-legend">
+        <span><span class="swatch" style="background:#b45f06"></span>Pet Valu discount</span>
+        <span><span class="swatch" style="background:#c8d3de"></span>At parity (±2%)</span>
+        <span><span class="swatch" style="background:#2d7a4f"></span>Pet Valu premium</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Relative distribution of price gaps</h2>
+      <p class="sub">
+        Percentage share of each competitor's eligible matched pairs in each price-gap bucket.
+        Every retailer is normalized to its own comparison count.
+      </p>
+      <div class="price-hist" id="price-hist-relative"></div>
+      <div class="price-axis" aria-hidden="true">
+        <div class="price-axis-line"></div>
+        <div class="price-axis-labels">
+          <span class="left">Pet Valu at a discount</span>
+          <span class="right">Pet Valu at a premium</span>
+        </div>
+      </div>
+      <div class="price-legend" id="price-hist-legend"></div>
+    </div>
+
+    <div class="card">
+      <h2>Absolute distribution of price gaps</h2>
+      <p class="sub">
+        Each bar shows the number of matched price comparisons between Pet Valu and that competitor.
+        Taller bars mean more products were available to compare.
+      </p>
+      <div class="price-hist" id="price-hist-absolute"></div>
+      <div class="price-axis" aria-hidden="true">
+        <div class="price-axis-line"></div>
+        <div class="price-axis-labels">
+          <span class="left">Pet Valu at a discount</span>
+          <span class="right">Pet Valu at a premium</span>
+        </div>
+      </div>
+      <div class="price-legend" id="price-hist-absolute-legend"></div>
+      <p class="muted" id="price-hist-cap-note"></p>
+    </div>
+
+    <div class="card">
+      <h2>Price gap by ticket size</h2>
+      <p class="sub">
+        Median Pet Valu price gap by shelf-price band. <strong>+ means Pet Valu is
+        positioned at a premium (green); − means Pet Valu is positioned at a discount
+        (dark orange).</strong> At Level 1–3, observations outside ±20% are excluded
+        to reduce unresolved pack-size distortion.
+      </p>
+      <div style="overflow:auto"><table class="heat price-band" id="price-band-matrix"></table></div>
     </div>
   </section>
 
@@ -580,6 +739,7 @@ let CLUSTER_CACHE = {};
 let state = {
   universe: "catdog",
   maxStrictness: "L2",
+  pricingStrictness: "L0",
   level: "L0",
   selectedRetailers: ["petvalu","petsmart","chewy","amazon_1p","walmart","loblaws"],
   activePreset: "new6",
@@ -753,17 +913,8 @@ function renderUniverseBadge() {
   el.className = "universe-badge" + (catdog ? "" : " all");
 }
 
-function renderUniverseCounts() {
-  const el = document.getElementById("universe-counts");
-  if (!el || !META) return;
-  const p = catalogTotals();
-  const parts = activeRetailers().map(k => `${provLabel(k)}: ${fmt(p[k] || 0)}`);
-  el.innerHTML = `<strong>${state.universe === "catdog" ? "Cat/dog SKUs" : "All SKUs"}</strong><br>${parts.join(" · ")}`;
-}
-
 function refreshDashboard() {
   renderUniverseBadge();
-  renderUniverseCounts();
   renderMetrics();
   renderMatrixTable();
   renderGuideCards();
@@ -1265,6 +1416,206 @@ function renderMetrics() {
   renderStacks(e);
   renderHeat(e);
   renderBrandDeck();
+  renderPricing();
+}
+
+/* ---------------- Pricing page ---------------- */
+const PRICE_COLORS = {
+  petsmart: "#c0504d", chewy: "#9dc3d5", amazon: "#b7bec7",
+  amazon_1p: "#ffc000", walmart: "#d9b2e8", loblaws: "#4a5563",
+};
+
+function pricingData() {
+  return U().pricing || META.pricing || null;
+}
+
+function fmtGap(p) {
+  if (p == null || !Number.isFinite(p)) return "—";
+  const cls = p > 0.5 ? "price-pos" : p < -0.5 ? "price-neg" : "price-zero";
+  return `<span class="${cls}">${p > 0 ? "+" : ""}${p.toFixed(1)}%</span>`;
+}
+
+function renderPricingLevels() {
+  const el = document.getElementById("pricing-levels");
+  if (!el) return;
+  el.innerHTML = LEVELS.map(l =>
+    `<button class="price-pill${l === state.pricingStrictness ? " active" : ""}" data-l="${l}">
+       ${levelLabel(l)} · ${META.levels[l].short}</button>`).join("");
+  el.querySelectorAll("button").forEach(btn => {
+    btn.onclick = () => {
+      state.pricingStrictness = btn.dataset.l;
+      renderPricing();
+    };
+  });
+}
+
+function renderPricing() {
+  const kpiEl = document.getElementById("price-kpis");
+  if (!kpiEl) return;
+  renderPricingLevels();
+
+  const pricing = pricingData();
+  const selected = activeRetailers();
+  const tableEl = document.getElementById("price-table");
+  const subEl = document.getElementById("price-table-sub");
+  const shareEl = document.getElementById("price-share-bars");
+  const histRelEl = document.getElementById("price-hist-relative");
+  const histAbsEl = document.getElementById("price-hist-absolute");
+  const histLegEl = document.getElementById("price-hist-legend");
+  const histAbsLegEl = document.getElementById("price-hist-absolute-legend");
+  const histCapNoteEl = document.getElementById("price-hist-cap-note");
+  const bandEl = document.getElementById("price-band-matrix");
+
+  const clearAll = (msg) => {
+    kpiEl.innerHTML = "";
+    tableEl.innerHTML = "";
+    shareEl.innerHTML = histRelEl.innerHTML = histAbsEl.innerHTML = "";
+    histLegEl.innerHTML = histAbsLegEl.innerHTML = histCapNoteEl.innerHTML = "";
+    bandEl.innerHTML = "";
+    subEl.textContent = msg;
+  };
+
+  if (!pricing) { clearAll("Pricing data not available — rebuild the dashboard."); return; }
+  if (!selected.includes("petvalu")) {
+    clearAll("Select Pet Valu in the retailer bar to compare its prices against other retailers.");
+    return;
+  }
+
+  const level = state.pricingStrictness;
+  const comps = selected.filter(r => r !== "petvalu" && pricing.vs[r]?.[level]?.pairs > 0);
+  if (!comps.length) {
+    clearAll("No matched SKUs with prices on both sides for this selection.");
+    return;
+  }
+
+  const statsOf = q => pricing.vs[q][level];
+
+  // ---- KPIs (aggregated across selected competitors) ----
+  let pairs = 0, cheaper = 0, parity = 0, premium = 0;
+  comps.forEach(q => {
+    const s = statsOf(q);
+    pairs += s.pairs; cheaper += s.cheaper; parity += s.parity; premium += s.premium;
+  });
+  kpiEl.innerHTML = `
+    <div class="kpi"><div class="val">${fmt(pairs)}</div>
+      <div class="lbl">matched SKU price comparisons at ${levelLabel(level)}</div></div>
+    <div class="kpi"><div class="val">${pct(cheaper, pairs)}</div>
+      <div class="lbl">of comparisons where Pet Valu is positioned at a discount (beyond ±2%)</div></div>
+    <div class="kpi"><div class="val">${pct(premium, pairs)}</div>
+      <div class="lbl">of comparisons where Pet Valu is positioned at a premium (beyond ±2%)</div></div>
+    <div class="kpi"><div class="val">${pct(parity, pairs)}</div>
+      <div class="lbl">of comparisons at parity (within ±2%)</div></div>`;
+
+  subEl.textContent = `Matched Pet Valu SKUs with a valid price on both sides, at ${levelLabel(level)} — ${LEVEL_SHORT[level]}.` +
+    (level === "L0" ? "" : " All pricing views exclude gaps outside ±20% at this level.");
+  const unitPairs = comps.reduce((s, q) => s + (statsOf(q).unit_pairs || 0), 0);
+  const noteEl = document.getElementById("price-unit-note");
+  if (noteEl) noteEl.textContent = ` (${pct(unitPairs, pairs)} of current comparisons are size-normalized)`;
+
+  // ---- position table ----
+  let html = `<thead><tr><th>vs Retailer</th><th>PV median $</th>
+    <th>Their median $ (size-adj.)</th><th>Median gap</th>
+    <th>PV discount</th><th>Parity</th><th>PV premium</th></tr></thead><tbody>`;
+  comps.forEach(q => {
+    const s = statsOf(q);
+    html += `<tr>
+      <td><span class="prov-tag ${PROV_CLS[q] || ""}">${provLabel(q)}</span></td>
+      <td>$${s.pv_median.toFixed(2)}</td>
+      <td>$${s.comp_median.toFixed(2)}</td>
+      <td>${fmtGap(s.med_pct)}</td>
+      <td>${pct(s.cheaper, s.pairs)}</td>
+      <td>${pct(s.parity, s.pairs)}</td>
+      <td>${pct(s.premium, s.pairs)}</td>
+    </tr>`;
+  });
+  tableEl.innerHTML = html + "</tbody>";
+
+  // ---- discount / parity / premium stacked shares ----
+  shareEl.innerHTML = comps.map(q => {
+    const s = statsOf(q);
+    const seg = (n, cls, label) => {
+      const w = (100 * n / s.pairs);
+      return `<div class="seg ${cls}" style="width:${w}%" title="${label}: ${fmt(n)} SKUs (${w.toFixed(0)}%)">
+        ${w >= 9 ? w.toFixed(0) + "%" : ""}</div>`;
+    };
+    return `<div class="stack-row">
+      <div class="stack-label">${provLabel(q).replace(/ \(.*\)/, "")}</div>
+      <div class="stack-track">
+        ${seg(s.cheaper, "pr-cheaper", "Pet Valu discount")}
+        ${seg(s.parity, "pr-parity", "At parity")}
+        ${seg(s.premium, "pr-premium", "Pet Valu premium")}
+      </div>
+      <div class="stack-total">${fmt(s.pairs)} SKUs</div>
+    </div>`;
+  }).join("");
+
+  // ---- relative and absolute histograms ----
+  // Level 1+ excludes observations outside ±20% from all pricing analysis because
+  // unresolved pack-size differences can create false extreme gaps.
+  const allBins = pricing.bin_labels;
+  const binIndexes = allBins.map((_, i) => i)
+    .filter(i => level === "L0" || (i > 0 && i < allBins.length - 1));
+  const bins = binIndexes.map(i => allBins[i]);
+  const counts = comps.map(q => binIndexes.map(i => statsOf(q).hist[i] || 0));
+  const shares = comps.map(q => {
+    const s = statsOf(q);
+    const denominator = s.hist_pairs || s.hist.reduce((a, b) => a + b, 0);
+    return binIndexes.map(i => denominator ? 100 * (s.hist[i] || 0) / denominator : 0);
+  });
+  const maxShare = Math.max(...shares.flat(), 1);
+  histRelEl.innerHTML = bins.map((label, bi) => `
+    <div class="ph-bin">
+      <div class="ph-bars">
+        ${comps.map((q, qi) => {
+          const sh = shares[qi][bi];
+          return `<div class="ph-bar" style="height:${Math.max(1, 130 * sh / maxShare)}px;
+            background:${PRICE_COLORS[q] || "#888"}"
+            title="${provLabel(q)} — ${label}: ${sh.toFixed(1)}% of pairs"></div>`;
+        }).join("")}
+      </div>
+      <div class="ph-lbl">${label}</div>
+    </div>`).join("");
+  const maxCount = Math.max(...counts.flat(), 1);
+  histAbsEl.innerHTML = bins.map((label, bi) => `
+    <div class="ph-bin">
+      <div class="ph-bars">
+        ${comps.map((q, qi) => {
+          const n = counts[qi][bi];
+          return `<div class="ph-bar" style="height:${Math.max(1, 130 * n / maxCount)}px;
+            background:${PRICE_COLORS[q] || "#888"}"
+            title="${provLabel(q)} — ${label}: ${fmt(n)} matched pairs"></div>`;
+        }).join("")}
+      </div>
+      <div class="ph-lbl">${label}</div>
+    </div>`).join("");
+  const legendHtml = comps.map(q =>
+    `<span><span class="swatch" style="background:${PRICE_COLORS[q] || "#888"}"></span>${provLabel(q)}</span>`
+  ).join("");
+  histLegEl.innerHTML = legendHtml;
+  histAbsLegEl.innerHTML = legendHtml;
+  const hidden = comps.reduce((n, q) => n + (statsOf(q).excluded_extreme_gaps || 0), 0);
+  histCapNoteEl.textContent = level === "L0"
+    ? "Level 0 includes the full distribution; values above ±30% are folded into the outer 20–30% buckets."
+    : `${fmt(hidden)} comparisons outside ±20% are excluded from every pricing KPI, table, chart, and matrix at ${levelLabel(level)} because unresolved size differences can distort extreme gaps.`;
+
+  // ---- price gap by ticket size (band matrix) ----
+  const heatCell = (b) => {
+    if (!b || b.med_pct == null || !b.pairs) return `<td class="diag">—</td>`;
+    const p = b.med_pct;
+    const alpha = Math.min(Math.abs(p) / 25, 1) * 0.75;
+    const bg = p > 0 ? `rgba(45,122,79,${alpha})` : p < 0 ? `rgba(180,95,6,${alpha})` : "#fff";
+    const fg = alpha > 0.45 ? "#fff" : "inherit";
+    return `<td style="background:${bg};color:${fg}">
+      <div class="h-pct">${p > 0 ? "+" : ""}${p.toFixed(1)}%</div>
+      <div class="h-cnt">${fmt(b.pairs)} SKUs</div></td>`;
+  };
+  const bandLabels = statsOf(comps[0]).bands.map(b => b.label);
+  bandEl.innerHTML =
+    `<thead><tr><th>PV shelf price</th>${comps.map(q =>
+      `<th>${provLabel(q).replace(/ \(.*\)/, "")}</th>`).join("")}</tr></thead><tbody>` +
+    bandLabels.map((lbl, bi) => `<tr><th>${lbl}</th>${
+      comps.map(q => heatCell(statsOf(q).bands?.[bi])).join("")}</tr>`).join("") +
+    "</tbody>";
 }
 
 function renderRetailerBar() {
@@ -1561,7 +1912,6 @@ async function init() {
 
     renderRetailerBar();
     renderUniverseBadge();
-    renderUniverseCounts();
 
     renderStrictnessControl();
     renderMetrics();
