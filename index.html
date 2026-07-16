@@ -1497,8 +1497,6 @@ function renderPricing() {
     pairs += s.pairs; cheaper += s.cheaper; parity += s.parity; premium += s.premium;
   });
   kpiEl.innerHTML = `
-    <div class="kpi"><div class="val">${fmt(pairs)}</div>
-      <div class="lbl">matched SKU price comparisons at ${levelLabel(level)}</div></div>
     <div class="kpi"><div class="val">${pct(cheaper, pairs)}</div>
       <div class="lbl">of comparisons where Pet Valu is positioned at a discount (beyond ±2%)</div></div>
     <div class="kpi"><div class="val">${pct(premium, pairs)}</div>
@@ -1593,10 +1591,7 @@ function renderPricing() {
   ).join("");
   histLegEl.innerHTML = legendHtml;
   histAbsLegEl.innerHTML = legendHtml;
-  const hidden = comps.reduce((n, q) => n + (statsOf(q).excluded_extreme_gaps || 0), 0);
-  histCapNoteEl.textContent = level === "L0"
-    ? "Level 0 includes the full distribution; values above ±30% are folded into the outer 20–30% buckets."
-    : `${fmt(hidden)} comparisons outside ±20% are excluded from every pricing KPI, table, chart, and matrix at ${levelLabel(level)} because unresolved size differences can distort extreme gaps.`;
+  histCapNoteEl.textContent = "Some SKUs that couldn't be normalized to a single unit of size are excluded at levels above Level 0; other SKUs above Level 0 are normalized by size unit once size is removed from matching.";
 
   // ---- price gap by ticket size (band matrix) ----
   const heatCell = (b) => {
